@@ -4,4 +4,10 @@ node_modules/
 out/
 .DS_Store
 *.tsbuildinfo
-supabase.txt >> .gitignore
+supabase.txt
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+supabase/.temp/

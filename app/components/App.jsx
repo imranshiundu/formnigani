@@ -22,6 +22,22 @@ import { useLiveFeed } from '@/lib/live';
 import { FlameBurst, StoriesRail, StoryViewer } from './Stories';
 import CommentSheet from './Comments';
 import { ProfileSheet, RichText } from './Social';
+import { db, USE_SUPABASE } from '@/lib/db';
+import { supabaseDb } from '@/lib/db/supabase';
+import { toComment } from '@/lib/db/supabase';
+import { useAuth } from '@/lib/auth';
+
+function deriveNotifs(forms) {
+  const up = forms
+    .filter((f) => f.live || f.tonight)
+    .slice(0, 6)
+    .map((f) => ({ t: f.title, seed: f.seed, img: f.img, s: f.live ? 'Live now' : f.startsShort, id: f.id }));
+  const past = forms
+    .filter((f) => !f.live && !f.tonight)
+    .slice(0, 6)
+    .map((f) => ({ t: f.title, seed: f.seed, img: f.img, s: f.startsShort || 'Ended', id: f.id }));
+  return { up, past };
+}
 
 const ThreeHero = dynamic(() => import('./ThreeHero'), { ssr: false });
 
@@ -259,7 +275,35 @@ export default function App() {
   const [cLoc, setCLoc] = useState('');
   const [cPhoto, setCPhoto] = useState(null);
   const [cTags, setCTags] = useState(['Rooftop']);
-  const [offline, setOffline] = useState(false);
+  const [em, setEm] = useState('');
+  const [emPw, setEmPw] = useState('');
+  const [emMode, setEmMode] = useState('in');
+  const [emErr, setEmErr] = useState('');
+  const [emBusy, setEmBusy] = useState(false);
+  const doEmail = async () => {
+    if (!em.includes('@') || emPw.length < 6) {
+      setEmErr('Enter a valid email and a 6+ character password.');
+      return;
+    }
+    setEmBusy(true);
+    setEmErr('');
+    try {
+      if (emMode === 'up') {
+        const { session } = await auth.signUpEmail(em.trim(), emPw, name || 'Someone');
+        if (!session) setEmErr('Check your email to confirm, then log in.');
+      } else {
+        await auth.signInEmail(em.trim(), emPw);
+        const fn = pending.current;
+        pending.current = null;
+        if (fn) fn();
+        else go('home');
+      }
+    } catch (e) {
+      setEmErr(e.message || 'Could not log in — try again');
+    } finally {
+      setEmBusy(false);
+    }
+  };  const [offline, setOffline] = useState(false);
   const [deferred, setDeferred] = useState(null);
   const [notifOn, setNotifOn] = useState(true);
   const [when, setWhen] = useState(0);
@@ -270,6 +314,9 @@ export default function App() {
   const pending = useRef(null);
   const toastTimer = useRef(null);
   const user = st.user;
+  const auth = useAuth();
+  const SB = USE_SUPABASE && auth.active;
+  const profId = auth.profile?.id || null;
 
   const showToast = useCallback((msg) => {
     setToast({ msg, k: Date.now() });
@@ -308,8 +355,18 @@ export default function App() {
     persistState(st);
   }, [st]);
 
-  /* ----- initial data ----- */
+  /* ----- initial data (provider: supabase when configured, else memory API) ----- */
   useEffect(() => {
+    if (SB) {
+      db.feed()
+        .then((j) => {
+          if (!j?.forms?.length) return;
+          setForms(j.forms);
+          setMeta({ notifs: j.meta.notifs || deriveNotifs(j.forms), taken: j.meta.taken, tags: j.meta.tags, recents: j.meta.recents });
+        })
+        .catch(() => {});
+      return;
+    }
     fetch('/api/forms', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
@@ -318,7 +375,28 @@ export default function App() {
         setMeta({ notifs: j.notifs, taken: j.taken, tags: j.tags, recents: j.recents });
       })
       .catch(() => {});
-  }, []);
+  }, [SB]);
+
+  /* ----- supabase session -> local user mirror + server state ----- */
+  useEffect(() => {
+    if (!SB || auth.loading) return;
+    const p = auth.profile;
+    if (auth.sbUser && p && !String(p.handle).startsWith('@user_')) {
+      setSt((s) => ({
+        ...s,
+        user: { name: p.name, handle: p.handle, photo: supabaseDb.profilePhoto(p) },
+        ob: true,
+      }));
+      db.myState(p.id)
+        .then((m) => setSt((s) => ({ ...s, saves: m.saves, joins: m.joins, hypes: m.hypes })))
+        .catch(() => {});
+    } else if (auth.sbUser && screen.name !== 'handle') {
+      if (!p) auth.refreshProfile();
+      setName(p?.name || '');
+      go('handle');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [SB, auth.loading, auth.sbUser, auth.profile, screen.name]);
 
   /* ----- splash flow ----- */
   useEffect(() => {
@@ -364,6 +442,7 @@ export default function App() {
   }, []);
 
   const liveStatus = useLiveFeed({
+    enabled: !SB,
     onTick: mergeCounts,
     onEvent: (msg) => {
       if (msg.type === 'hype') {
@@ -393,6 +472,44 @@ export default function App() {
       }
     },
   });
+
+  /* ----- supabase realtime (replaces SSE when configured) ----- */
+  useEffect(() => {
+    if (!SB) return;
+    let t = null;
+    const refetch = () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        db.feed()
+          .then((j) => {
+            if (!j?.forms?.length) return;
+            setForms(j.forms);
+            setMeta((m) => ({ ...m, taken: j.meta.taken, tags: j.meta.tags, recents: j.meta.recents }));
+          })
+          .catch(() => {});
+      }, 900);
+    };
+    const unsub = db.subscribe((ev) => {
+      if (ev.kind === 'comment' && ev.row) {
+        const c = toComment(ev.row);
+        mergeComment(c);
+        const fs = formsRef.current;
+        const u = userRef.current;
+        const f = fs.find((x) => x.id === c.formId);
+        pushActivity(`${c.user?.name || 'Someone'} commented on ${f?.title || 'a Form'}`);
+        const me = String(u?.handle || '').toLowerCase();
+        if (u && f?.host && f.host.handle.toLowerCase() === me && String(c.user?.handle || '').toLowerCase() !== me) {
+          showToast(`${c.user?.name || 'Someone'} commented on your Form`);
+        }
+      } else {
+        refetch();
+      }
+    });
+    return () => {
+      clearTimeout(t);
+      unsub();
+    };
+  }, [SB]);
 
   /* ----- auth ----- */
   const [ePhoto, setEPhoto] = useState(null);
@@ -442,6 +559,14 @@ export default function App() {
     if (fn) fn();
     else go('home');
   };
+  const googleGo = async () => {
+    if (!SB) return simulateGoogle(afterAuth);
+    try {
+      await auth.signInGoogle();
+    } catch (e) {
+      showToast('Google sign-in is not enabled yet — use email instead');
+    }
+  };
   const simulateGoogle = (done) => {
     setTimeout(() => {
       const u = { name: 'Brian Kimani', photo: AVA(12), handle: st.user?.handle || null };
@@ -457,11 +582,13 @@ export default function App() {
   /* ----- actions ----- */
   const trySave = (id) => {
     if (!user) return openGate(() => trySave(id));
+    const on = !st.saves.includes(id);
     setSt((s) => ({
       ...s,
-      saves: s.saves.includes(id) ? s.saves.filter((x) => x !== id) : [...s.saves, id],
+      saves: on ? [...s.saves, id] : s.saves.filter((x) => x !== id),
     }));
-    showToast(st.saves.includes(id) ? 'Removed from Saved' : 'Saved');
+    showToast(on ? 'Saved' : 'Removed from Saved');
+    if (SB && profId) db.save(id, on, profId).catch(() => showToast('Sync failed — kept on this device'));
   };
 
   const tryJoin = (id, el) => {
@@ -473,11 +600,17 @@ export default function App() {
       joins: leaving ? s.joins.filter((x) => x !== id) : [...s.joins, id],
     }));
     setForms((prev) => prev.map((x) => (x.id === id ? { ...x, going: Math.max(0, x.going + (leaving ? -1 : 1)) } : x)));
-    fetch('/api/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action: leaving ? 'leave' : 'join' }),
-    }).catch(() => {});
+    if (SB && profId) {
+      db.join(id, leaving ? 'leave' : 'join', profId)
+        .then((going) => setForms((prev) => prev.map((x) => (x.id === id ? { ...x, going } : x))))
+        .catch(() => {});
+    } else {
+      fetch('/api/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: leaving ? 'leave' : 'join' }),
+      }).catch(() => {});
+    }
     if (!leaving) {
       showToast("You're in! See you there");
       if (el) {
@@ -493,11 +626,17 @@ export default function App() {
       hypes: remove ? s.hypes.filter((x) => x !== id) : [...s.hypes, id],
     }));
     setForms((prev) => prev.map((x) => (x.id === id ? { ...x, hype: Math.max(0, x.hype + (remove ? -1 : 1)) } : x)));
-    fetch('/api/hype', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action: remove ? 'remove' : 'add' }),
-    }).catch(() => {});
+    if (SB && profId) {
+      db.hype(id, remove ? 'remove' : 'add', profId)
+        .then((hype) => setForms((prev) => prev.map((x) => (x.id === id ? { ...x, hype } : x))))
+        .catch(() => {});
+    } else {
+      fetch('/api/hype', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: remove ? 'remove' : 'add' }),
+      }).catch(() => {});
+    }
     if (!remove) {
       showToast('Hyped! The host sees the love');
       if (el) {
@@ -533,14 +672,19 @@ export default function App() {
   }, []);
   const openComments = (formId) => {
     setSheet(formId);
+    const merge = (server) => {
+      const cached = loadCommentCache()[formId] || [];
+      const merged = [...(server || []).map(hydrateComment), ...cached.map(hydrateComment)];
+      const dedup = [...new Map(merged.map((c) => [c.id, c])).values()].sort((a, b) => a.ts - b.ts);
+      setComments((prev) => ({ ...prev, [formId]: dedup }));
+    };
+    if (SB) {
+      db.comments(formId).then(merge).catch(() => merge([]));
+      return;
+    }
     fetch(`/api/comments?formId=${formId}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const cached = loadCommentCache()[formId] || [];
-        const merged = [...(j?.comments || []).map(hydrateComment), ...cached.map(hydrateComment)];
-        const dedup = [...new Map(merged.map((c) => [c.id, c])).values()].sort((a, b) => a.ts - b.ts);
-        setComments((prev) => ({ ...prev, [formId]: dedup }));
-      })
+      .then((j) => merge(j?.comments))
       .catch(() => {});
   };
   const postComment = async (body, parentId) => {
@@ -549,6 +693,20 @@ export default function App() {
       openGate(() => {
         if (fid) setSheet(fid);
       });
+      return;
+    }
+    if (SB && profId) {
+      try {
+        const c = await db.postComment({
+          formId: sheet,
+          body,
+          parentId,
+          profile: { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo },
+        });
+        mergeComment(c);
+      } catch (e) {
+        showToast(e.message || 'Could not post — try again');
+      }
       return;
     }
     try {
@@ -629,6 +787,8 @@ export default function App() {
   screenRef.current = screen;
   const userRef = useRef(null);
   userRef.current = st.user;
+  const formsRef = useRef(forms);
+  formsRef.current = forms;
   useEffect(() => {
     try {
       let h = '';
@@ -693,25 +853,38 @@ export default function App() {
     if (!user) return openGate(postForm);
     const tags = cTags.join(', ');
     const img = cPhoto ? IMGP(cPhoto, 800, 600) : IMGP('fng-default' + (Date.now() % 7), 800, 600);
-    fetch('/api/forms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        area: cLoc.trim() || 'Near you',
-        host: { name: user.name, handle: user.handle, photo: user.photo.startsWith('data:') ? null : user.photo },
-        desc: tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.',
-        img,
-      }),
-    })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.form) {
-          setForms((prev) => [hydrate(j.form), ...prev]);
-          setSt((s) => ({ ...s, joins: [...s.joins, j.form.id] }));
-        }
+    const desc = tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.';
+    if (SB && profId) {
+      db.createForm(
+        { title, area: cLoc.trim() || 'Near you', desc, img },
+        { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo }
+      )
+        .then((f) => {
+          setForms((prev) => [f, ...prev]);
+          setSt((s) => ({ ...s, joins: [...s.joins, f.id] }));
+        })
+        .catch((e) => showToast(e.message || 'Could not publish — try again'));
+    } else {
+      fetch('/api/forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          area: cLoc.trim() || 'Near you',
+          host: { name: user.name, handle: user.handle, photo: user.photo.startsWith('data:') ? null : user.photo },
+          desc,
+          img,
+        }),
       })
-      .catch(() => {});
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.form) {
+            setForms((prev) => [hydrate(j.form), ...prev]);
+            setSt((s) => ({ ...s, joins: [...s.joins, j.form.id] }));
+          }
+        })
+        .catch(() => {});
+    }
     setCTitle('');
     setCLoc('');
     setCPhoto(null);
@@ -729,9 +902,29 @@ export default function App() {
     if ((meta.taken || []).includes(bare)) return setHandleMsg({ text: `@${bare} is taken`, kind: 'bad' });
     setHandleMsg({ text: `@${bare} is available`, kind: 'ok' });
   };
-  const submitHandle = () => {
+  const submitHandle = async () => {
     const bare = handle.replace(/^@/, '');
-    if (bare.length < 3 || !user) return;
+    if (bare.length < 3) return;
+    if (SB && auth.sbUser) {
+      try {
+        const taken = await db.profileByHandle('@' + bare);
+        if (taken && taken.id !== auth.sbUser.id) {
+          setHandleMsg({ text: `@${bare} is taken`, kind: 'bad' });
+          return;
+        }
+        await auth.saveProfile({ name: name.trim() || auth.profile?.name || 'Someone', handle: '@' + bare });
+        showToast(`Welcome, ${(name.trim() || 'friend').split(' ')[0]}`);
+        setSt((s) => ({ ...s, ob: true }));
+        const fn = pending.current;
+        pending.current = null;
+        if (fn) fn();
+        else go('home');
+      } catch (e) {
+        showToast(e.message || 'Could not save — try again');
+      }
+      return;
+    }
+    if (!user) return;
     const u = { ...user, name: name.trim() || user.name, handle: '@' + bare };
     setSt((s) => ({ ...s, user: u, ob: true }));
     afterAuth(u);
@@ -819,7 +1012,21 @@ export default function App() {
                 <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
                 <h1>Every day has<br /><em style={{ color: '#F07BE8', fontStyle: 'normal' }}>a plan.</em></h1>
                 <p className="sub">Real people, real plans — happening near you right now.</p>
-                <GoogleButton id="auth" onClick={() => simulateGoogle(afterAuth)} />
+                {SB && (
+                  <div className="emailbox">
+                    <input className="input" value={em} onChange={(e) => setEm(e.target.value)} placeholder="Email address" inputMode="email" autoComplete="email" />
+                    <input className="input" type="password" value={emPw} onChange={(e) => setEmPw(e.target.value)} placeholder="Password (6+ characters)" autoComplete={emMode === 'up' ? 'new-password' : 'current-password'} onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
+                    {emErr ? <div className="hmsg bad">{emErr}</div> : <div className="hmsg" />}
+                    <button className="btn-go" onClick={doEmail} disabled={emBusy}>
+                      {emBusy ? 'One moment...' : emMode === 'up' ? 'Create account' : 'Log in with email'}
+                    </button>
+                    <button className="ghost-link" onClick={() => { setEmMode(emMode === 'up' ? 'in' : 'up'); setEmErr(''); }}>
+                      {emMode === 'up' ? 'Have an account? Log in' : 'New here? Create account'}
+                    </button>
+                    <div className="ordiv"><i />or<i /></div>
+                  </div>
+                )}
+                <GoogleButton id="auth" onClick={googleGo} />
                 <button className="ghost-link" onClick={() => go('home')}>Just looking around — continue as guest</button>
               </div>
             </div>
@@ -1217,7 +1424,12 @@ export default function App() {
               <div className="grab" />
               <h3>Welcome to FormNiGani</h3>
               <p className="psub">Log in to join plans, host your own, and save your weekend highlights.</p>
-              <GoogleButton id="gate" onClick={() => simulateGoogle(afterAuth)} />
+              <GoogleButton id="gate" onClick={googleGo} />
+              {SB && (
+                <button className="guest-skip" onClick={() => { setGate(false); go('auth'); }}>
+                  Continue with email instead
+                </button>
+              )}
               <button className="guest-skip" onClick={guestSkip}>Just looking around — continue as guest</button>
             </div>
           </div>
@@ -1246,6 +1458,7 @@ export default function App() {
                 {deferred && <span className="pill-mini">New</span>}
               </div>
               <div className="setrow danger" onClick={() => {
+                if (SB) auth.signOut();
                 clearState();
                 setSt({ user: null, saves: [], joins: [], hypes: [], ob: false });
                 pending.current = null;
@@ -1290,7 +1503,23 @@ export default function App() {
                 <span>{typeof window !== 'undefined' ? window.location.host : 'formnigani.com'}/@{String(user.handle || '').replace(/^@/, '')}</span>
                 <button onClick={() => copyLink(profileUrl(user.handle))}>Copy</button>
               </div>
-              <button className="btn-black" style={{ width: '100%', marginTop: 22 }} onClick={() => {
+              <button className="btn-black" style={{ width: '100%', marginTop: 22 }} onClick={async () => {
+                if (SB && auth.sbUser) {
+                  try {
+                    const h = st.user?.handle || user?.handle || '';
+                    const existing = await db.profileByHandle(h);
+                    if (existing && existing.id !== auth.sbUser.id) {
+                      showToast('That handle is taken');
+                      return;
+                    }
+                    await auth.saveProfile({ name: name.trim() || undefined, handle: h || undefined, avatar_url: ePhoto || user?.photo });
+                    setEdit(false);
+                    showToast('Profile saved');
+                  } catch (e) {
+                    showToast(e.message || 'Could not save — try again');
+                  }
+                  return;
+                }
                 setSt((s) => ({ ...s, user: { ...s.user, name: name.trim() || s.user.name, photo: ePhoto || s.user.photo } }));
                 setEdit(false);
                 showToast('Profile saved');
