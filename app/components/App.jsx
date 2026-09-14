@@ -319,6 +319,7 @@ export default function App() {
   const [profTab, setProfTab] = useState('attended');
   const [profEvents, setProfEvents] = useState({ attended: [], hosted: [] });
   const [profEventsState, setProfEventsState] = useState('idle');
+  const [pubProfile, setPubProfile] = useState(null);
   const [sheet, setSheet] = useState(null); // formId with open comment sheet
   const [profSheet, setProfSheet] = useState(null); // handle with open profile sheet
   const [comments, setComments] = useState({}); // formId -> list // [BACKEND]
@@ -423,28 +424,6 @@ export default function App() {
       })
       .catch(() => setProfEventsState('error'));
   }, []);
-
-  /* ----- profile events load when the profile screen opens ----- */
-  const [pubProfile, setPubProfile] = useState(null);
-  useEffect(() => {
-    if (screen.name !== 'profile') return;
-    if (isOwnProfile && user) {
-      loadProfEvents(user.handle, profId);
-      return;
-    }
-    if (!isOwnProfile && viewingHandle) {
-      let cancelled = false;
-      db.profileByHandle(viewingHandle).then((p) => {
-        if (cancelled) return;
-        setPubProfile(p || null);
-        loadProfEvents(viewingHandle, p?.id || null);
-      }).catch(() => loadProfEvents(viewingHandle, null));
-      return () => {
-        cancelled = true;
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen.name, screen.param, isOwnProfile, user?.handle, profId]);
 
   /* ----- deep-link validation once the backend answers ----- */
   useEffect(() => {
@@ -908,6 +887,27 @@ export default function App() {
       ? forms.map((f) => f.host).find((h) => h && h.handle.toLowerCase() === viewingHandle.toLowerCase()) || null
       : null;
   const pubBio = pubProfile?.bio || '';
+
+  /* ----- profile events load when the profile screen opens ----- */
+  useEffect(() => {
+    if (screen.name !== 'profile') return;
+    if (isOwnProfile && user) {
+      loadProfEvents(user.handle, profId);
+      return;
+    }
+    if (!isOwnProfile && viewingHandle) {
+      let cancelled = false;
+      db.profileByHandle(viewingHandle).then((p) => {
+        if (cancelled) return;
+        setPubProfile(p || null);
+        loadProfEvents(viewingHandle, p?.id || null);
+      }).catch(() => loadProfEvents(viewingHandle, null));
+      return () => {
+        cancelled = true;
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen.name, screen.param, isOwnProfile, user?.handle, profId]);
 
   /* ----- create ----- */
   const postForm = () => {
