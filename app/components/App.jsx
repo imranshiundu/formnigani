@@ -6,10 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AVA,
   IMGP,
+  cacheComment,
   clearState,
   fmt,
   hostPhoto,
   hydrate,
+  hydrateComment,
+  loadCommentCache,
   loadState,
   persistState,
   seedForms,
@@ -17,6 +20,8 @@ import {
 } from '@/lib/client-store';
 import { useLiveFeed } from '@/lib/live';
 import { FlameBurst, StoriesRail, StoryViewer } from './Stories';
+import CommentSheet from './Comments';
+import { ProfileSheet, RichText } from './Social';
 
 const ThreeHero = dynamic(() => import('./ThreeHero'), { ssr: false });
 
@@ -68,10 +73,26 @@ function ago(ts) {
   return `${Math.floor(m / 60)}h ago`;
 }
 
+function DescBlock({ text, onUser, onTag }) {
+  const [more, setMore] = useState(false);
+  const long = text.length > 220;
+  return (
+    <p className="desc">
+      {more || !long ? <RichText text={text} onUser={onUser} onTag={onTag} /> : <RichText text={text.slice(0, 220) + '...'} onUser={onUser} onTag={onTag} />}
+      {long && (
+        <button className="morelink" onClick={() => setMore(!more)}>
+          {more ? ' Read less' : ' Read more'}
+        </button>
+      )}
+    </p>
+  );
+}
+
 /* ---------- card with single-tap open + double-tap hype ---------- */
-function Card({ f, saved, hyped, me, onOpen, onSave, onHype, onHost, onShare }) {
+function Card({ f, saved, hyped, me, cc, latest, onOpen, onSave, onHype, onHost, onShare, onComments, onUser, onTag }) {
   const tapTimer = useRef(null);
   const [burst, setBurst] = useState(null);
+  const [more, setMore] = useState(false);
 
   const tap = (e) => {
     if (tapTimer.current) {
@@ -139,6 +160,27 @@ function Card({ f, saved, hyped, me, onOpen, onSave, onHype, onHost, onShare }) 
           {me && <img src={me} alt="you" />}
           <span>{f.going} going</span>
         </div>
+        {f.capacity && f.going / f.capacity >= 0.6 && (
+          <div className="capbar" onClick={(e) => e.stopPropagation()}>
+            <i style={{ width: `${Math.min(100, Math.round((f.going / f.capacity) * 100))}%` }} />
+            <span>{f.going}/{f.capacity} in</span>
+          </div>
+        )}
+        {f.desc && (
+          <p className={`cdesc ${more ? '' : 'clamp'}`}>
+            <RichText text={f.desc} onUser={onUser} onTag={onTag} />
+            {' '}
+            <button
+              className="morelink"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMore(!more);
+              }}
+            >
+              {more ? 'less' : 'more'}
+            </button>
+          </p>
+        )}
         <div className="card-foot">
           <button
             className={`hype-chip ${hyped ? 'on' : ''}`}
@@ -160,7 +202,21 @@ function Card({ f, saved, hyped, me, onOpen, onSave, onHype, onHost, onShare }) 
           >
             {I.share}
           </button>
-          <span className="going-note">{f.live ? 'Happening now' : f.startsShort || 'Starting soon'}</span>
+          <span className="going-note">{f.live ? 'Happening now' : f.startsShort === 'Just now' ? 'Starting now' : `Starts ${f.startsShort || 'soon'}`}</span>
+        </div>
+        <div
+          className="comment-row"
+          onClick={(e) => {
+            e.stopPropagation();
+            onComments?.(f.id);
+          }}
+        >
+          <span className="ccount">{cc > 0 ? `View all ${cc} comment${cc === 1 ? '' : 's'}` : 'Add the first comment'}</span>
+          {latest && (
+            <span className="cprev">
+              {latest.user?.handle} {String(latest.body).slice(0, 60)}
+            </span>
+          )}
         </div>
       </div>
     </article>
@@ -207,6 +263,9 @@ export default function App() {
   const [deferred, setDeferred] = useState(null);
   const [notifOn, setNotifOn] = useState(true);
   const [when, setWhen] = useState(0);
+  const [sheet, setSheet] = useState(null); // formId with open comment sheet
+  const [profSheet, setProfSheet] = useState(null); // handle with open profile sheet
+  const [comments, setComments] = useState({}); // formId -> list // [BACKEND]
 
   const pending = useRef(null);
   const toastTimer = useRef(null);
@@ -319,6 +378,15 @@ export default function App() {
         setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, going: msg.going } : f)));
         pushActivity(`${msg.name} just joined ${msg.title}`);
         showToast(`${msg.name} just joined ${msg.title}`);
+      } else if (msg.type === 'comment' && msg.comment) {
+        mergeComment(msg.comment);
+        const nm = msg.comment.user?.name || 'Someone';
+        pushActivity(`${nm} commented on ${msg.title}`);
+        const f = forms.find((x) => x.id === msg.formId);
+        const me = String(user?.handle || '').toLowerCase();
+        if (user && f?.host && f.host.handle.toLowerCase() === me && String(msg.comment.user?.handle || '').toLowerCase() !== me) {
+          showToast(`${nm} commented on your Form`);
+        }
       } else if (msg.type === 'sim-hype') {
         setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, hype: msg.hype } : f)));
         pushActivity(`${msg.name} hyped ${msg.title}`);
@@ -393,7 +461,7 @@ export default function App() {
       ...s,
       saves: s.saves.includes(id) ? s.saves.filter((x) => x !== id) : [...s.saves, id],
     }));
-    showToast(st.saves.includes(id) ? 'Removed from saved' : 'Saved to your list');
+    showToast(st.saves.includes(id) ? 'Removed from Saved' : 'Saved');
   };
 
   const tryJoin = (id, el) => {
@@ -416,7 +484,7 @@ export default function App() {
         const r = el.getBoundingClientRect();
         burstConfetti(r.left + r.width / 2, r.top, true);
       }
-    } else showToast("You're out — maybe next time");
+    } else showToast('Maybe next time');
   };
 
   const doHype = (id, el, remove) => {
@@ -448,6 +516,60 @@ export default function App() {
     go(name, param);
   };
 
+  /* ----- comments // [BACKEND] swap fetch/POST for DB-backed endpoints ----- */
+  const ccount = (f) => Math.max(f.commentCount || 0, (comments[f.id] || []).length);
+  const latestComment = (f) => {
+    const top = (comments[f.id] || []).filter((c) => !c.parentId);
+    return top[top.length - 1] || null;
+  };
+  const mergeComment = useCallback((c) => {
+    const h = hydrateComment(c);
+    setComments((prev) => {
+      const list = prev[h.formId] || [];
+      if (list.some((x) => x.id === h.id)) return prev;
+      return { ...prev, [h.formId]: [...list, h] };
+    });
+    cacheComment(h);
+  }, []);
+  const openComments = (formId) => {
+    setSheet(formId);
+    fetch(`/api/comments?formId=${formId}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const cached = loadCommentCache()[formId] || [];
+        const merged = [...(j?.comments || []).map(hydrateComment), ...cached.map(hydrateComment)];
+        const dedup = [...new Map(merged.map((c) => [c.id, c])).values()].sort((a, b) => a.ts - b.ts);
+        setComments((prev) => ({ ...prev, [formId]: dedup }));
+      })
+      .catch(() => {});
+  };
+  const postComment = async (body, parentId) => {
+    if (!user) {
+      const fid = sheet;
+      openGate(() => {
+        if (fid) setSheet(fid);
+      });
+      return;
+    }
+    try {
+      const r = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formId: sheet,
+          body,
+          parentId,
+          user: { name: user.name, handle: user.handle, photo: user.photo.startsWith('data:') ? null : user.photo },
+        }),
+      });
+      const j = await r.json();
+      if (j.comment) mergeComment(j.comment);
+      else showToast(j.error || 'Could not post — try again');
+    } catch {
+      showToast('You are offline — comment not posted');
+    }
+  };
+
   const openTab = (t) => {
     if (!user && (t === 'saved' || t === 'profile')) return requirePage(t);
     go(t);
@@ -474,9 +596,28 @@ export default function App() {
     [forms, st.saves, sfilter]
   );
   const searchRes = useMemo(() => {
-    const q = searchQ.toLowerCase();
-    return forms.filter((f) => f.title.toLowerCase().includes(q) || f.area.toLowerCase().includes(q));
+    const raw = searchQ.trim().toLowerCase();
+    const q = raw.startsWith('#') ? raw.slice(1) : raw;
+    return forms.filter(
+      (f) =>
+        f.title.toLowerCase().includes(q) ||
+        f.area.toLowerCase().includes(q) ||
+        (f.tags || []).some((t) => t.toLowerCase().includes(q))
+    );
   }, [forms, searchQ]);
+  const searchPeople = useMemo(() => {
+    const raw = searchQ.trim().toLowerCase();
+    if (!raw.startsWith('@')) return null;
+    const q = raw.slice(1);
+    const seen = new Map();
+    forms.forEach((f) => {
+      if (f.host) seen.set(f.host.handle.toLowerCase(), f.host);
+    });
+    return [...seen.values()].filter(
+      (h) => h.handle.toLowerCase().includes(q) || h.name.toLowerCase().includes(q)
+    );
+  }, [forms, searchQ]);
+  const sheetForm = sheet ? forms.find((f) => f.id === sheet) : null;
 
   const tabbed = ['home', 'map', 'saved', 'profile'].includes(screen.name);
   useEffect(() => {
@@ -660,7 +801,7 @@ export default function App() {
                 <span className="chip-badge"><i className="dot" />LIVE</span>
                 <span className="chip-badge chip-l"><i className="dot mute" />Ending soon</span>
               </div>
-              <h1>People post. You<br /><em className="hl">show up.</em></h1>
+              <h1>They post it. You<br /><em className="hl">show up.</em></h1>
               <p>Discover plans around you and join the moments that matter.</p>
               <div className="dots"><i /><i className="on" /></div>
               <div className="ob-pad" />
@@ -689,7 +830,7 @@ export default function App() {
             <div className="scr">
               <button className="iconbtn back" onClick={() => go('auth')} aria-label="Back">{I.back}</button>
               <img className="ava" src="https://i.pravatar.cc/120?img=12" alt="" />
-              <h2>What should we call you?</h2>
+              <h2>Pick your username</h2>
               <p className="sub">Pick a handle — that&apos;s how people find you.</p>
               <div className="hcard">
                 <label>Your name</label>
@@ -725,7 +866,7 @@ export default function App() {
               </div>
               <div className="cards">
                 {feed.length ? feed.map((f) => (
-                  <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} />
+                  <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
                 )) : <p className="empty">No plans match this filter — try &quot;All&quot;.</p>}
               </div>
             </div>
@@ -747,7 +888,7 @@ export default function App() {
               </div>
               <div className="cards">
                 {savedList.length ? savedList.map((f) => (
-                  <Card key={f.id} f={f} saved hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} />
+                  <Card key={f.id} f={f} saved hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
                 )) : <p className="empty">Nothing saved yet — tap the bookmark on any plan to keep it here.</p>}
               </div>
             </div>
@@ -832,7 +973,7 @@ export default function App() {
                     <h4>Hosted plans</h4>
                     <div className="cards">
                       {pubForms.map((f) => (
-                        <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} />
+                        <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
                       ))}
                     </div>
                   </div>
@@ -864,7 +1005,7 @@ export default function App() {
                 </g>
               </svg>
               <div className="map-search" onClick={() => { setSearchQ(''); setSearchOpen(true); }}>
-                {I.search} Search area
+                {I.search} Search this area
               </div>
               <div className="map-card" onClick={() => go('form', 'f1')}>
                 <img src="https://picsum.photos/seed/fng-bonfire/400/400" alt="" />
@@ -916,7 +1057,22 @@ export default function App() {
                   <div>{I.clock}<span>{cur?.ends || '—'}</span></div>
                 </div>
                 <hr />
-                <p className="desc">{cur?.desc}</p>
+                {cur?.desc && (
+                  <DescBlock text={cur.desc} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
+                )}
+                {cur?.tags?.length > 0 && (
+                  <div className="tagrow">
+                    {cur.tags.map((t) => (
+                      <button key={t} className="tagchip" onClick={() => { setSearchQ('#' + t); setSearchOpen(true); }}>
+                        #{t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="crow-entry" onClick={() => cur && openComments(cur.id)}>
+                  <span>Comments ({cur ? ccount(cur) : 0})</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+                </div>
                 {cur && !cur.live && (
                   <button className={`hype-btn ${st.hypes.includes(cur.id) ? 'on' : ''}`} onClick={(e) => tryHype(cur.id, e.currentTarget)} style={{ marginTop: 14 }}>
                     {I.flame}<b>{fmt(cur.hype)}</b>&nbsp;hype this plan
@@ -924,7 +1080,7 @@ export default function App() {
                 )}
               </div>
               <div className="form-actions">
-                <button className="btn-ghost" onClick={() => go(lastTab || 'home')}>Pass</button>
+                <button className="btn-ghost" onClick={() => go(lastTab || 'home')}>Can&apos;t make it</button>
                 <button className={`btn-primary ${cur && st.joins.includes(cur.id) ? 'joined' : ''}`} onClick={(e) => cur && tryJoin(cur.id, e.currentTarget)}>
                   {cur && st.joins.includes(cur.id) ? "You're In" : "I'm In!"}
                 </button>
@@ -1028,7 +1184,7 @@ export default function App() {
         {searchOpen && (
           <div className="search-ov on">
             <div className="so-head">
-              <input className="input" value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Search plans, places, vibes..." autoComplete="off" autoFocus />
+              <input className="input" value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Search Forms, spots, tags" autoComplete="off" autoFocus />
               <button className="iconbtn" aria-label="Close" onClick={() => setSearchOpen(false)}>{I.close}</button>
             </div>
             <div className="recent">
@@ -1037,7 +1193,14 @@ export default function App() {
               ))}
             </div>
             <div className="so-res">
-              {searchRes.length ? searchRes.map((f) => (
+              {searchPeople ? (
+                searchPeople.length ? searchPeople.map((h) => (
+                  <div key={h.handle} className="res-row" onClick={() => { setSearchOpen(false); setProfSheet(h.handle); }}>
+                    <img src={hostPhoto(h)} alt="" />
+                    <div><b>{h.name}</b><span>{h.handle}</span></div>
+                  </div>
+                )) : <p className="empty">No people found — try another name.</p>
+              ) : searchRes.length ? searchRes.map((f) => (
                 <div key={f.id} className="res-row" onClick={() => { setSearchOpen(false); go('form', f.id); }}>
                   <img src={f.img} alt="" />
                   <div><b>{f.title}</b><span>{f.area} · {f.km} km · {f.live ? 'LIVE' : f.startsShort}</span></div>
@@ -1146,6 +1309,40 @@ export default function App() {
             onSeen={(id) => setSeen((s) => (s.includes(id) ? s : [...s, id]))}
             isHyped={(id) => st.hypes.includes(id)}
             onHype={tryHype}
+          />
+        )}
+
+        {/* COMMENT SHEET */}
+        {sheetForm && (
+          <CommentSheet
+            key={sheetForm.id}
+            form={sheetForm}
+            comments={comments[sheetForm.id] || []}
+            user={user}
+            onClose={() => setSheet(null)}
+            onPost={postComment}
+            onUser={(h) => {
+              setSheet(null);
+              setProfSheet(h);
+            }}
+            onTag={(t) => {
+              setSheet(null);
+              setSearchQ('#' + t);
+              setSearchOpen(true);
+            }}
+          />
+        )}
+
+        {/* PROFILE SHEET */}
+        {profSheet && (
+          <ProfileSheet
+            handle={profSheet}
+            forms={forms}
+            onClose={() => setProfSheet(null)}
+            onFullProfile={(h) => {
+              setProfSheet(null);
+              go('profile', h);
+            }}
           />
         )}
 

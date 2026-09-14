@@ -25,7 +25,13 @@
         "name": "Nia",
         "handle": "@nia",
         "ava": 47
-      }
+      },
+      "capacity": 40,
+      "postedH": 3,
+      "tags": [
+        "Music",
+        "Chill"
+      ]
     },
     {
       "id": "f2",
@@ -52,7 +58,13 @@
         "name": "Kevin",
         "handle": "@kev",
         "ava": 33
-      }
+      },
+      "capacity": 20,
+      "postedH": 1,
+      "tags": [
+        "Rooftop",
+        "Music"
+      ]
     },
     {
       "id": "f3",
@@ -79,7 +91,12 @@
         "name": "Dennis",
         "handle": "@dennis",
         "ava": 59
-      }
+      },
+      "capacity": 28,
+      "postedH": 26,
+      "tags": [
+        "Football"
+      ]
     },
     {
       "id": "f4",
@@ -106,7 +123,13 @@
         "name": "Achieng",
         "handle": "@achi",
         "ava": 45
-      }
+      },
+      "capacity": 30,
+      "postedH": 8,
+      "tags": [
+        "Nyama",
+        "Chill"
+      ]
     },
     {
       "id": "f5",
@@ -133,7 +156,13 @@
         "name": "Sharon",
         "handle": "@sharon",
         "ava": 44
-      }
+      },
+      "capacity": 25,
+      "postedH": 5,
+      "tags": [
+        "Karaoke",
+        "Music"
+      ]
     },
     {
       "id": "f6",
@@ -160,7 +189,12 @@
         "name": "Mike",
         "handle": "@mike",
         "ava": 53
-      }
+      },
+      "capacity": 30,
+      "postedH": 30,
+      "tags": [
+        "Hiking"
+      ]
     }
   ],
   "notifs": {
@@ -232,5 +266,115 @@
     "Rooftop",
     "Hike",
     "Karaoke"
+  ],
+  "comments": [
+    {
+      "id": "c1",
+      "formId": "f1",
+      "user": {
+        "name": "Kevin",
+        "handle": "@kev",
+        "ava": 33
+      },
+      "body": "Who is bringing extra blankets? #Chill",
+      "minAgo": 95,
+      "parentId": null
+    },
+    {
+      "id": "c2",
+      "formId": "f1",
+      "user": {
+        "name": "Nia",
+        "handle": "@nia",
+        "ava": 47
+      },
+      "body": "We have spares — just come through",
+      "minAgo": 80,
+      "parentId": "c1"
+    },
+    {
+      "id": "c3",
+      "formId": "f1",
+      "user": {
+        "name": "Achieng",
+        "handle": "@achi",
+        "ava": 45
+      },
+      "body": "The last one was unreal. Hyped for this one @nia",
+      "minAgo": 40,
+      "parentId": null
+    },
+    {
+      "id": "c4",
+      "formId": "f2",
+      "user": {
+        "name": "Sharon",
+        "handle": "@sharon",
+        "ava": 44
+      },
+      "body": "Is the rooftop easy to find?",
+      "minAgo": 50,
+      "parentId": null
+    },
+    {
+      "id": "c5",
+      "formId": "f2",
+      "user": {
+        "name": "Kevin",
+        "handle": "@kev",
+        "ava": 33
+      },
+      "body": "@sharon Pin drops after you are in — entrance is on the Kileleshwa side",
+      "minAgo": 32,
+      "parentId": "c4"
+    },
+    {
+      "id": "c6",
+      "formId": "f4",
+      "user": {
+        "name": "Mike",
+        "handle": "@mike",
+        "ava": 53
+      },
+      "body": "Bringing my crew of 4 #Nyama",
+      "minAgo": 180,
+      "parentId": null
+    },
+    {
+      "id": "c7",
+      "formId": "f5",
+      "user": {
+        "name": "Nia",
+        "handle": "@nia",
+        "ava": 47
+      },
+      "body": "Saving my voice for this #Karaoke",
+      "minAgo": 65,
+      "parentId": null
+    },
+    {
+      "id": "c8",
+      "formId": "f3",
+      "user": {
+        "name": "Dennis",
+        "handle": "@dennis",
+        "ava": 59
+      },
+      "body": "Are boots required or can I play in trainers?",
+      "minAgo": 300,
+      "parentId": null
+    },
+    {
+      "id": "c9",
+      "formId": "f6",
+      "user": {
+        "name": "Achieng",
+        "handle": "@achi",
+        "ava": 45
+      },
+      "body": "First hike of the year. See you at 5am #Hiking",
+      "minAgo": 400,
+      "parentId": null
+    }
   ]
 }
