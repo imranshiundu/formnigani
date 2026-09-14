@@ -1,0 +1,114 @@
+{
+  "forms": [
+    {
+      "id": "f1",
+      "title": "Bonfire + acoustic night",
+      "area": "Karen",
+      "seed": "fng-bonfire",
+      "live": true,
+      "km": 1.2,
+      "eta": "20 min",
+      "ends": "Ends in 2h",
+      "going": 32,
+      "tonight": true,
+      "free": true,
+      "avs": [5, 9, 15, 32],
+      "desc": "Kuna speaker, kuna views, na whoever shows up. No dress code, no plan — just pull up. Kuja na snacks zako, sisi tunaanza moto."
+    },
+    {
+      "id": "f2",
+      "title": "Rooftop sunset hang",
+      "area": "Westlands",
+      "seed": "fng-rooftop",
+      "live": true,
+      "km": 0.4,
+      "eta": "10 min",
+      "ends": "Ends in 1h 40m",
+      "going": 12,
+      "tonight": true,
+      "free": true,
+      "avs": [8, 25, 44, 12],
+      "desc": "Sunset, muziki poa, drinks baridi. Tuletane 6pm — mko wote welcome. Entrance ni free, tu bring good vibes."
+    },
+    {
+      "id": "f3",
+      "title": "5-a-side pickup — Go Down",
+      "area": "Industrial Area",
+      "seed": "fng-football",
+      "live": false,
+      "startsShort": "Kesho 4pm",
+      "km": 6.2,
+      "eta": "25 min",
+      "ends": "Kesho 4pm",
+      "going": 14,
+      "tonight": false,
+      "free": true,
+      "avs": [3, 22, 52, 16],
+      "desc": "Pitch imereserved. Leta boots na water — teams tunaipanga huko. Mpira iko."
+    },
+    {
+      "id": "f4",
+      "title": "Nyama choma Sunday",
+      "area": "Kilimani",
+      "seed": "fng-nyama",
+      "live": false,
+      "startsShort": "Sunday 1pm",
+      "km": 2.8,
+      "eta": "15 min",
+      "ends": "Sunday 1pm",
+      "going": 21,
+      "tonight": false,
+      "free": true,
+      "avs": [11, 30, 45, 20],
+      "desc": "Choma, muziki, na banter kubwa. Kila mtu na crew yake, grill iko side yetu. Karibuni wote."
+    },
+    {
+      "id": "f5",
+      "title": "Karaoke night — Kile",
+      "area": "Kileleshwa",
+      "seed": "fng-karaoke",
+      "live": false,
+      "startsShort": "Leo 9pm",
+      "km": 2.4,
+      "eta": "12 min",
+      "ends": "Leo 9pm",
+      "going": 18,
+      "tonight": true,
+      "free": true,
+      "avs": [7, 18, 28, 36],
+      "desc": "Mic iko wazi, crowd iko warm. Kuja uimbe au uchekwe — vyote ni content."
+    },
+    {
+      "id": "f6",
+      "title": "Sunrise hike — Ngong Hills",
+      "area": "Ngong",
+      "seed": "fng-hike",
+      "live": false,
+      "startsShort": "Sat 5:30am",
+      "km": 22,
+      "eta": "40 min",
+      "ends": "Sat 5:30am",
+      "going": 26,
+      "tonight": false,
+      "free": false,
+      "avs": [2, 14, 40, 23],
+      "desc": "Tunatoka CBD 5am sharp. Leta water, jacket na stamina — views juu ni za kuambiwa tu. KES 500 inalipa transport."
+    }
+  ],
+  "notifs": {
+    "up": [
+      { "t": "Bonfire + acoustic night", "seed": "fng-bonfire", "s": "Inaanza 2h 10m", "id": "f1" },
+      { "t": "Sunday pickup run — Karura", "seed": "fng-run", "s": "Inaanza 1h 05m", "id": "f3" },
+      { "t": "Rooftop movie night — Kile", "seed": "fng-movie", "s": "Inaanza kesho", "id": "f2" },
+      { "t": "Karaoke night — Haveli", "seed": "fng-karaoke", "s": "Inaanza 2h 15m", "id": "f5" }
+    ],
+    "past": [
+      { "t": "Nyama choma Sunday", "seed": "fng-nyama", "s": "Iliisha jana", "id": "f4" },
+      { "t": "Sunrise hike — Ngong", "seed": "fng-hike", "s": "Iliisha Jumamosi", "id": "f6" },
+      { "t": "Bonfire + acoustic night", "seed": "fng-bonfire", "s": "Iliisha", "id": "f1" }
+    ]
+  },
+  "taken": ["nairobi", "admin", "formnigani", "sheng", "queen", "king", "nani"],
+  "tags": ["Rooftop", "Beach", "Music", "Sports", "Chill"],
+  "recents": ["Nyama", "Rooftop", "Hike", "Karaoke"]
+}

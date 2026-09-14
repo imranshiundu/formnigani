@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FormNiGani — Form ni gani?</title>
+<meta name="description" content="FormNiGani — discover real plans happening near you. Kuna Form karibu na wewe.">
+<meta name="theme-color" content="#A21CAF">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%23A21CAF'/><text x='32' y='45' font-family='Arial' font-size='36' font-weight='800' fill='white' text-anchor='middle'>?</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="stage">
+  <div class="phone" id="phone">
+
+    <!-- fake status bar -->
+    <div class="sb"><div class="sb-in" style="display:contents">
+      <span class="sb-time">9:30</span>
+      <span class="island"></span>
+      <svg width="70" height="13" viewBox="0 0 70 13" fill="currentColor" aria-hidden="true">
+        <rect x="0" y="7.5" width="3" height="5" rx="1"/><rect x="5" y="5.5" width="3" height="7" rx="1"/><rect x="10" y="3" width="3" height="9.5" rx="1"/><rect x="15" y="1" width="3" height="11.5" rx="1"/>
+        <path d="M24.5 4.6a9.4 9.4 0 0112 0l-1.7 2a6.8 6.8 0 00-8.6 0z"/><path d="M27.3 7.8a5.3 5.3 0 016.4 0l-1.8 2.2a2.6 2.6 0 00-2.8 0z"/><circle cx="30.5" cy="11" r="1.4"/>
+        <rect x="46" y="1.5" width="19" height="10" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="48" y="3.5" width="13" height="6" rx="1.5"/><rect x="66.5" y="4.5" width="2" height="4" rx="1" opacity=".4"/>
+      </svg>
+    </div></div>
+
+    <div class="screens">
+
+      <!-- SPLASH -->
+      <section class="screen s-splash" id="scr-splash"><div class="scr">
+        <div class="logo-lock">
+          <svg viewBox="0 0 48 48" fill="none"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor"/><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#A21CAF" stroke-width="2.7" stroke-linecap="round"/><circle cx="24.6" cy="28.9" r="1.6" fill="#A21CAF"/></svg>
+          <b>FormNiGani</b>
+        </div>
+      </div></section>
+
+      <!-- ONBOARD 1 -->
+      <section class="screen s-ob" id="scr-ob1"><div class="scr">
+        <div class="brandmini"><svg viewBox="0 0 48 48"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor"/><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#fff" stroke-width="2.7" stroke-linecap="round"/><circle cx="24.6" cy="28.9" r="1.6" fill="#fff"/></svg><b>FormNiGani</b></div>
+        <div class="stack">
+          <img class="p1" src="https://picsum.photos/seed/fng-sunset-girl/600/720" alt="">
+          <img class="p2" src="https://picsum.photos/seed/fng-friends/600/720" alt="">
+        </div>
+        <h1>Kuna Form<br><em class="hl">karibu na wewe.</em></h1>
+        <p>Best nights za mtaa zinaendelea right now. Wewe bado hujaona.</p>
+        <div class="dots"><i class="on"></i><i></i></div>
+        <div class="ob-pad"></div>
+        <button class="btn-black" data-go="ob2">Continue</button>
+      </div></section>
+
+      <!-- ONBOARD 2 -->
+      <section class="screen s-ob" id="scr-ob2"><div class="scr">
+        <div class="brandmini"><svg viewBox="0 0 48 48"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor"/><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#fff" stroke-width="2.7" stroke-linecap="round"/><circle cx="24.6" cy="28.9" r="1.6" fill="#fff"/></svg><b>FormNiGani</b></div>
+        <div class="stack">
+          <img class="p1" src="https://picsum.photos/seed/fng-crowd/600/720" alt="">
+          <img class="p2" src="https://picsum.photos/seed/fng-dance/600/720" alt="">
+          <span class="chip-badge"><i class="dot"></i>LIVE</span>
+          <span class="chip-badge chip-l"><i class="dot mute"></i>Inaisha soon</span>
+        </div>
+        <h1>Wanapost. Wewe<br><em class="hl">Una-show.</em></h1>
+        <p>Discover plans za watu around you, na join moments zinamatter.</p>
+        <div class="dots"><i></i><i class="on"></i></div>
+        <div class="ob-pad"></div>
+        <button class="btn-black" data-go="auth">Continue</button>
+      </div></section>
+
+      <!-- AUTH -->
+      <section class="screen s-auth" id="scr-auth"><div class="scr">
+        <div class="bgimg"></div><div class="veil"></div>
+        <div class="inner">
+          <div class="brandmini"><svg viewBox="0 0 48 48"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor"/><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#A21CAF" stroke-width="2.7" stroke-linecap="round"/><circle cx="24.6" cy="28.9" r="1.6" fill="#A21CAF"/></svg><b>FormNiGani</b></div>
+          <h1>Kila siku kuna<br><em style="color:#F07BE8;font-style:normal">Form.</em></h1>
+          <p class="sub">Real people, real plans — zinaendelea karibu na wewe right now.</p>
+          <button class="btn-google" id="authGoogle">
+            <svg width="19" height="19" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.3H12v4.5h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.8-2.9c-1 .7-2.4 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5l-3.8 2.9C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.3 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4L1.5 6.7C.5 8.3 0 10.1 0 12s.5 3.7 1.5 5.3l3.8-2.9z"/><path fill="#EA4335" d="M12 4.6c2.2 0 3.7 1 4.6 1.8l3.4-3.3C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.5 6.7l3.8 2.9c.9-2.9 3.6-5 6.7-5z"/></svg>
+            <span>Continue with Google</span>
+          </button>
+          <button class="ghost-link" data-go="home">Si tuanze — browse kama guest</button>
+        </div>
+      </div></section>
+
+      <!-- USERNAME -->
+      <section class="screen s-handle" id="scr-handle"><div class="scr">
+        <button class="iconbtn back" data-go="auth" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <img class="ava" id="hAva" src="https://i.pravatar.cc/120?img=12" alt="">
+        <h2>Nani kama wewe?</h2>
+        <p class="sub">Chagua handle — ndio watu watakupata.</p>
+        <div class="hcard">
+          <label>Jina yako</label>
+          <input class="input" id="hName" value="Brian Kimani" autocomplete="off">
+          <label>Handle yako</label>
+          <input class="input" id="hHandle" placeholder="@mfanyakazi" autocomplete="off" spellcheck="false">
+          <div class="hmsg" id="hMsg">Herufi 3+, hakuna nafasi.</div>
+        </div>
+        <button class="btn-black" id="hGo" disabled>Continue</button>
+        <div class="hnote">Unaweza badilisha baadaye kwa settings.</div>
+      </div></section>
+
+      <!-- HOME -->
+      <section class="screen s-home" id="scr-home"><div class="scr">
+        <div class="pagehead">
+          <div><div class="loc">Westlands, Nairobi.</div><h1>Form ni gani!</h1></div>
+          <div class="acts">
+            <button class="iconbtn" data-act="search" aria-label="Search"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg></button>
+            <button class="iconbtn" data-act="notifs" aria-label="Notifications"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10.3 21a2 2 0 003.4 0"/></svg></button>
+          </div>
+        </div>
+        <div class="pillrow page" id="homePills">
+          <button class="pill on" data-filter="all">Yote</button>
+          <button class="pill" data-filter="tonight">Tonight</button>
+          <button class="pill" data-filter="free">Free</button>
+          <button class="pill" data-filter="nearby">Nearby</button>
+        </div>
+        <div class="cards" id="feed"></div>
+      </div></section>
+
+      <!-- SAVED -->
+      <section class="screen s-saved" id="scr-saved"><div class="scr">
+        <div class="pagehead">
+          <h1>Saved</h1>
+          <div class="acts"><button class="iconbtn" data-act="search" aria-label="Search"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg></button></div>
+        </div>
+        <div class="pillrow page" id="savedPills">
+          <button class="pill on" data-sfilter="all">Yote</button>
+          <button class="pill" data-sfilter="live">Live now</button>
+          <button class="pill" data-sfilter="soon">Inaanza soon</button>
+        </div>
+        <div class="cards" id="savedList"></div>
+      </div></section>
+
+      <!-- PROFILE -->
+      <section class="screen s-profile" id="scr-profile"><div class="scr">
+        <div class="pagehead">
+          <h1>Profile</h1>
+          <div class="acts"><button class="iconbtn" data-act="settings" aria-label="Settings"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button></div>
+        </div>
+        <div class="prof-top">
+          <img class="ava" id="pAva" src="https://i.pravatar.cc/160?img=12" alt="">
+          <div class="nrow"><h3 id="pName">Brian Kimani</h3><button class="edit" data-act="editProfile">Edit</button></div>
+          <div class="hdl" id="pHdl">@brianrk</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>12</b><span>Hosted</span></div>
+          <div class="stat"><b id="pJoined">47</b><span>Joined</span></div>
+          <div class="stat"><b>6</b><span>Streak</span></div>
+        </div>
+        <div class="moments">
+          <h4>Your moments</h4>
+          <div class="grid9" id="moments"></div>
+        </div>
+      </div></section>
+
+      <!-- MAP -->
+      <section class="screen s-map" id="scr-map"><div class="scr">
+        <svg class="mapsvg" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="400" height="800" fill="#EDEFF1"/>
+          <g stroke="#FFFFFF" fill="none" stroke-linecap="round">
+            <path d="M-20 120 H420" stroke-width="12"/><path d="M-20 300 H420" stroke-width="7"/><path d="M-20 470 H420" stroke-width="9"/><path d="M-20 640 H420" stroke-width="6"/>
+            <path d="M70 -20 V820" stroke-width="9"/><path d="M180 -20 V820" stroke-width="6"/><path d="M290 -20 V820" stroke-width="11"/><path d="M355 -20 V820" stroke-width="5"/>
+            <path d="M-20 210 L420 190" stroke-width="4"/><path d="M-20 560 L420 540" stroke-width="4"/>
+          </g>
+          <ellipse cx="330" cy="215" rx="42" ry="30" fill="#DDEFDC"/><ellipse cx="120" cy="520" rx="34" ry="26" fill="#DDEFDC"/>
+          <path d="M60 60 V200 Q60 230 90 230 H180 Q210 230 210 260 V560 Q210 590 240 590 H310 Q335 590 335 620 V655" fill="none" stroke="#49AAFF" stroke-width="7" stroke-linecap="round"/>
+          <circle cx="60" cy="60" r="6" fill="#FF4D4D" stroke="#fff" stroke-width="2.5"/>
+          <circle class="pulse" cx="335" cy="655" r="20" fill="#49AAFF" opacity=".4"/>
+          <circle cx="335" cy="655" r="9" fill="#1E90FF" stroke="#fff" stroke-width="3.5"/>
+          <g fill="#9AA0A6" font-family="'Plus Jakarta Sans',sans-serif" font-size="12" font-weight="600">
+            <text x="84" y="245">Chiromo Lane</text>
+            <text x="296" y="140" transform="rotate(90 296 140)">Rhapta Road</text>
+            <text x="20" y="480">Mpaka Road</text>
+            <text x="230" y="112">Ring Rd Westlands</text>
+          </g>
+        </svg>
+        <div class="map-search" data-act="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          Tafuta eneo
+        </div>
+        <div class="map-card" data-go="form/f1">
+          <img src="https://picsum.photos/seed/fng-bonfire/400/400" alt="">
+          <div>
+            <h4>Bonfire + acoustic night</h4>
+            <span class="darkpill"><i class="dot"></i>1.2 km • Live</span>
+            <div class="more">+22 Forms zingine karibu na wewe</div>
+          </div>
+        </div>
+      </div></section>
+
+      <!-- DETAIL -->
+      <section class="screen s-form" id="scr-form"><div class="scr" style="position:relative">
+        <div class="hero">
+          <img id="dImg" src="" alt="">
+          <button class="back" id="dBack" data-go="home" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span class="chip-badge" id="dBadge"><i class="dot"></i>LIVE</span>
+        </div>
+        <div class="sheet">
+          <h2 id="dTitle">—</h2>
+          <div class="avs" id="dAvs"></div>
+          <div class="meta">
+            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span id="dKm">—</span></div>
+            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="dEnds">—</span></div>
+          </div>
+          <hr>
+          <p class="desc" id="dDesc"></p>
+        </div>
+        <div class="form-actions">
+          <button class="btn-ghost" data-act="bail">Siko</button>
+          <button class="btn-primary" data-act="join" id="dJoin">Niko!</button>
+        </div>
+      </div></section>
+
+      <!-- CREATE -->
+      <section class="screen s-create" id="scr-create"><div class="scr">
+        <div class="cre-head">
+          <button class="xbtn" data-go="home" aria-label="Close"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          <h2>New Form</h2>
+          <button class="post" id="cPost" disabled>Post</button>
+        </div>
+        <button class="photo" id="cPhoto">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 015.5 6h1.6L8.6 4h6.8l1.5 2h1.6A2.5 2.5 0 0121 8.5v9a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 17.5z"/><circle cx="12" cy="13" r="3.4"/></svg>
+          <span id="cPhotoTxt">Add photo</span>
+        </button>
+        <label class="flabel">Form ni gani?</label>
+        <input class="input" id="cTitle" placeholder="Rooftop hang, leta snacks..." autocomplete="off">
+        <label class="flabel">Wapi?</label>
+        <input class="input" id="cLoc" placeholder="Location — mf. Kile, rooftop LZ" autocomplete="off">
+        <div class="checkrow">
+          <label class="check"><input type="checkbox" checked><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Sasa hivi</label>
+          <label class="check"><input type="checkbox"><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Later today</label>
+        </div>
+        <div class="tags" id="cTags">
+          <button class="tag on">Rooftop</button><button class="tag">Beach</button><button class="tag">Music</button><button class="tag">Sports</button><button class="tag">Chill</button>
+        </div>
+        <button class="btn-go" id="cGo">Drop the Form <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div></section>
+
+      <!-- NOTIFICATIONS -->
+      <section class="screen s-notifs" id="scr-notifs"><div class="scr">
+        <div class="n-head">
+          <button class="xbtn" data-go="home" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <h2>Notifications</h2>
+        </div>
+        <div class="pillrow page" id="nPills">
+          <button class="pill on" data-ntab="up">Zinakuja</button>
+          <button class="pill" data-ntab="past">Zilizopita</button>
+        </div>
+        <div class="nlist" id="nList"></div>
+      </div></section>
+    </div>
+
+    <!-- NAV -->
+    <div class="nav-wrap" id="navWrap">
+      <nav class="nav">
+        <a href="#/home" data-nav="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>Home</a>
+        <a href="#/map" data-nav="map"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z"/><circle class="hole" cx="12" cy="10" r="2.5"/></svg>Map</a>
+        <a href="#/saved" data-nav="saved"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v17l-6-4-6 4z"/></svg>Save</a>
+        <a href="#/profile" data-nav="profile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profile</a>
+      </nav>
+      <button class="fab" data-go="create" aria-label="Create"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+
+    <!-- SEARCH OVERLAY -->
+    <div class="search-ov" id="searchOv">
+      <div class="so-head">
+        <input class="input" id="soInput" placeholder="Tafuta Form, spot, vibe..." autocomplete="off">
+        <button class="iconbtn" data-act="closeSearch" aria-label="Close"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="recent" id="soRecent">
+        <span class="pill">Nyama</span><span class="pill">Rooftop</span><span class="pill">Hike</span><span class="pill">Karaoke</span>
+      </div>
+      <div class="so-res" id="soRes"></div>
+    </div>
+
+    <!-- AUTH GATE -->
+    <div class="modal" id="gateModal"><div class="panel">
+      <div class="grab"></div>
+      <h3>Karibu FormNiGani</h3>
+      <p class="psub">Login ndio ujoin Forms, uhost, na usave moments za weekend.</p>
+      <button class="btn-google" id="gateGoogle">
+        <svg width="19" height="19" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.3H12v4.5h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.8-2.9c-1 .7-2.4 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5l-3.8 2.9C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.3 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4L1.5 6.7C.5 8.3 0 10.1 0 12s.5 3.7 1.5 5.3l3.8-2.9z"/><path fill="#EA4335" d="M12 4.6c2.2 0 3.7 1 4.6 1.8l3.4-3.3C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.5 6.7l3.8 2.9c.9-2.9 3.6-5 6.7-5z"/></svg>
+        <span id="gateLabel">Continue with Google</span>
+      </button>
+      <button class="guest-skip" data-act="closeGate">Si tuanze — browse kama guest</button>
+    </div></div>
+
+    <!-- SETTINGS -->
+    <div class="modal" id="setModal"><div class="panel">
+      <div class="grab"></div>
+      <h3>Settings</h3>
+      <p class="psub" id="setWho">Brian Kimani · @brianrk</p>
+      <div class="setrow" data-act="editProfile"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Edit profile<span class="spacer"></span></div>
+      <div class="setrow" data-act="toggleNotif">Notifications<span class="spacer"></span><span class="switch on" id="notifSwitch"></span></div>
+      <div class="setrow" data-act="aths"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Add to Home Screen<span class="spacer"></span></div>
+      <div class="setrow danger" data-act="logout"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Toka</div>
+    </div></div>
+
+    <!-- EDIT PROFILE -->
+    <div class="modal" id="editModal"><div class="panel">
+      <div class="grab"></div>
+      <h3>Edit profile</h3>
+      <p class="psub">Jina na handle ndio watu watakupata nayo.</p>
+      <label class="flabel" style="margin-top:0">Jina</label>
+      <input class="input" id="eName">
+      <label class="flabel">Handle</label>
+      <input class="input" id="eHdl">
+      <button class="btn-black" id="eSave" style="width:100%;margin-top:22px">Save</button>
+    </div></div>
+
+    <div class="toast" id="toast"></div>
+    <div class="hi"></div>
+  </div>
+  <div class="stage-cap"><b>FormNiGani</b> — interactive prototype · PWA-ready · v0.1</div>
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
