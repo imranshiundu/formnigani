@@ -1,0 +1,986 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+import Image from 'next/image';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AVA,
+  IMGP,
+  clearState,
+  fmt,
+  hydrate,
+  loadState,
+  persistState,
+  seedForms,
+  seedMeta,
+} from '@/lib/client-store';
+import { useLiveFeed } from '@/lib/live';
+import { FlameBurst, StoriesRail, StoryViewer } from './Stories';
+
+const ThreeHero = dynamic(() => import('./ThreeHero'), { ssr: false });
+
+/* ---------- tiny icons ---------- */
+const I = {
+  search: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M16.5 16.5L21 21" /></svg>
+  ),
+  bell: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10.3 21a2 2 0 003.4 0" /></svg>
+  ),
+  gear: (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>
+  ),
+  back: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+  ),
+  close: (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+  ),
+  plus: (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+  ),
+  pin: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+  ),
+  clock: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>
+  ),
+  save: (
+    <svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"><path d="M6 4h12v17l-6-4-6 4z" /></svg>
+  ),
+  flame: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" /><path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".45" /></svg>
+  ),
+  eye: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
+  ),
+};
+
+function ago(ts) {
+  const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return `${Math.floor(m / 60)}h ago`;
+}
+
+/* ---------- card with single-tap open + double-tap hype ---------- */
+function Card({ f, saved, hyped, onOpen, onSave, onHype }) {
+  const tapTimer = useRef(null);
+  const [burst, setBurst] = useState(null);
+
+  const tap = (e) => {
+    if (tapTimer.current) {
+      clearTimeout(tapTimer.current);
+      tapTimer.current = null;
+      const r = e.currentTarget.getBoundingClientRect();
+      setBurst({ x: e.clientX - r.left, y: e.clientY - r.top, k: Date.now() });
+      setTimeout(() => setBurst(null), 750);
+      onHype(f.id, null);
+      return;
+    }
+    tapTimer.current = setTimeout(() => {
+      tapTimer.current = null;
+      onOpen(f.id);
+    }, 260);
+  };
+
+  const badge = f.live ? (
+    <><i className="dot" />LIVE</>
+  ) : (
+    <><i className="dot mute" />{f.startsShort || 'Starting soon'}</>
+  );
+
+  return (
+    <article className="card" onClick={tap}>
+      <div className="card-img">
+        <Image src={f.img} alt="" fill sizes="360px" style={{ objectFit: 'cover' }} />
+        <span className="chip-badge">{badge}</span>
+        <button
+          className={`icon-save ${saved ? 'on' : ''}`}
+          aria-label="Save"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave(f.id);
+          }}
+        >
+          {I.save}
+        </button>
+        {f.live && (
+          <span className="viewers-pill"><i className="vdot" />{fmt(f.viewers)}&nbsp;watching</span>
+        )}
+        <div className={`img-chips ${f.live ? 'has-live' : ''}`}>
+          <span>{f.km} km</span><span>{f.eta}</span>
+        </div>
+        {burst && <FlameBurst key={burst.k} x={burst.x} y={burst.y} />}
+      </div>
+      <div className="card-body">
+        <h3>{f.title}</h3>
+        <div className="avs">
+          {(f.avs || []).slice(0, 4).map((n) => (
+            <img key={n} src={AVA(n)} alt="" />
+          ))}
+          <span>{f.going} going</span>
+        </div>
+        <div className="card-foot">
+          <button
+            className={`hype-chip ${hyped ? 'on' : ''}`}
+            aria-label="Hype this plan"
+            onClick={(e) => {
+              e.stopPropagation();
+              onHype(f.id, e.currentTarget);
+            }}
+          >
+            {I.flame}<span>{fmt(f.hype)}</span>
+          </button>
+          <span className="going-note">{f.live ? 'Happening now' : f.startsShort || 'Starting soon'}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/* ================= APP ================= */
+export default function App() {
+  const [screen, setScreen] = useState({ name: 'splash', param: null });
+  const [forms, setForms] = useState(() => seedForms());
+  const [meta, setMeta] = useState(() => seedMeta());
+  const [st, setSt] = useState(() => loadState());
+  const [filter, setFilter] = useState('all');
+  const [sfilter, setSfilter] = useState('all');
+  const [nTab, setNTab] = useState('up');
+  const [lastTab, setLastTab] = useState('home');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
+  const [gate, setGate] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [activity, setActivity] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [storyIdx, setStoryIdx] = useState(null);
+  const [seen, setSeen] = useState([]);
+  const [handle, setHandle] = useState('');
+  const [handleMsg, setHandleMsg] = useState({ text: '3+ characters, no spaces.', kind: '' });
+  const [name, setName] = useState('Brian Kimani');
+  const [cTitle, setCTitle] = useState('');
+  const [cLoc, setCLoc] = useState('');
+  const [cPhoto, setCPhoto] = useState(null);
+  const [cTags, setCTags] = useState(['Rooftop']);
+  const [offline, setOffline] = useState(false);
+  const [deferred, setDeferred] = useState(null);
+  const [notifOn, setNotifOn] = useState(true);
+  const [when, setWhen] = useState(0);
+
+  const pending = useRef(null);
+  const toastTimer = useRef(null);
+  const user = st.user;
+
+  const showToast = useCallback((msg) => {
+    setToast({ msg, k: Date.now() });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const go = useCallback((name, param = null) => setScreen({ name, param }), []);
+
+  /* ----- persistence ----- */
+  useEffect(() => {
+    persistState(st);
+  }, [st]);
+
+  /* ----- initial data ----- */
+  useEffect(() => {
+    fetch('/api/forms', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j?.forms?.length) return;
+        setForms(j.forms.map(hydrate));
+        setMeta({ notifs: j.notifs, taken: j.taken, tags: j.tags, recents: j.recents });
+      })
+      .catch(() => {});
+  }, []);
+
+  /* ----- splash flow ----- */
+  useEffect(() => {
+    if (screen.name !== 'splash') return;
+    const t = setTimeout(() => go(st.ob ? 'home' : 'ob1'), st.ob ? 800 : 1600);
+    return () => clearTimeout(t);
+  }, [screen.name, st.ob, go]);
+
+  /* ----- PWA + online ----- */
+  useEffect(() => {
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+    const on = () => {
+      setOffline(!navigator.onLine);
+      if (navigator.onLine) showToast('Back online');
+    };
+    setOffline(!navigator.onLine);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', on);
+    const bip = (e) => {
+      e.preventDefault();
+      setDeferred(e);
+    };
+    window.addEventListener('beforeinstallprompt', bip);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', on);
+      window.removeEventListener('beforeinstallprompt', bip);
+    };
+  }, [showToast]);
+
+  /* ----- realtime feed ----- */
+  const mergeCounts = useCallback((list) => {
+    if (!Array.isArray(list)) return;
+    const m = new Map(list.map((x) => [x.id, x]));
+    setForms((prev) => prev.map((f) => (m.has(f.id) ? { ...f, ...m.get(f.id), img: f.img } : f)));
+  }, []);
+
+  const pushActivity = useCallback((text) => {
+    setActivity((a) => [{ id: Date.now() + Math.random(), text, ts: Date.now() }, ...a].slice(0, 15));
+    setUnread((u) => u + 1);
+  }, []);
+
+  const liveStatus = useLiveFeed({
+    onTick: mergeCounts,
+    onEvent: (msg) => {
+      if (msg.type === 'hype') {
+        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, hype: msg.hype } : f)));
+      } else if (msg.type === 'join') {
+        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, going: msg.going } : f)));
+      } else if (msg.type === 'create' && msg.form) {
+        setForms((prev) => (prev.some((f) => f.id === msg.form.id) ? prev : [hydrate(msg.form), ...prev]));
+        pushActivity(`New plan near you: ${msg.form.title}`);
+        showToast('New plan just dropped');
+      } else if (msg.type === 'sim-join') {
+        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, going: msg.going } : f)));
+        pushActivity(`${msg.name} just joined ${msg.title}`);
+        showToast(`${msg.name} just joined ${msg.title}`);
+      } else if (msg.type === 'sim-hype') {
+        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, hype: msg.hype } : f)));
+        pushActivity(`${msg.name} hyped ${msg.title}`);
+      }
+    },
+  });
+
+  /* ----- auth ----- */
+  const openGate = (fn) => {
+    pending.current = fn || null;
+    setGate(true);
+  };
+  const guestSkip = () => {
+    pending.current = null;
+    setGate(false);
+    showToast('Browsing as guest');
+    if (['saved', 'profile'].includes(screen.name)) go(lastTab || 'home');
+  };
+  const afterAuth = (u) => {
+    showToast(`Welcome, ${u.name.split(' ')[0]}`);
+    const fn = pending.current;
+    pending.current = null;
+    if (fn) fn();
+    else go('home');
+  };
+  const simulateGoogle = (done) => {
+    setTimeout(() => {
+      const u = { name: 'Brian Kimani', photo: AVA(12), handle: st.user?.handle || null };
+      setSt((s) => ({ ...s, user: u }));
+      setGate(false);
+      if (!u.handle) {
+        setName(u.name);
+        go('handle');
+      } else done(u);
+    }, 900);
+  };
+
+  /* ----- actions ----- */
+  const trySave = (id) => {
+    if (!user) return openGate(() => trySave(id));
+    setSt((s) => ({
+      ...s,
+      saves: s.saves.includes(id) ? s.saves.filter((x) => x !== id) : [...s.saves, id],
+    }));
+    showToast(st.saves.includes(id) ? 'Removed from saved' : 'Saved to your list');
+  };
+
+  const tryJoin = (id, el) => {
+    if (!user) return openGate(() => tryJoin(id));
+    const f = forms.find((x) => x.id === id);
+    const leaving = st.joins.includes(id);
+    setSt((s) => ({
+      ...s,
+      joins: leaving ? s.joins.filter((x) => x !== id) : [...s.joins, id],
+    }));
+    setForms((prev) => prev.map((x) => (x.id === id ? { ...x, going: Math.max(0, x.going + (leaving ? -1 : 1)) } : x)));
+    fetch('/api/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: leaving ? 'leave' : 'join' }),
+    }).catch(() => {});
+    if (!leaving) {
+      showToast("You're in! See you there");
+      if (el) {
+        const r = el.getBoundingClientRect();
+        burstConfetti(r.left + r.width / 2, r.top, true);
+      }
+    } else showToast("You're out — maybe next time");
+  };
+
+  const doHype = (id, el, remove) => {
+    setSt((s) => ({
+      ...s,
+      hypes: remove ? s.hypes.filter((x) => x !== id) : [...s.hypes, id],
+    }));
+    setForms((prev) => prev.map((x) => (x.id === id ? { ...x, hype: Math.max(0, x.hype + (remove ? -1 : 1)) } : x)));
+    fetch('/api/hype', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action: remove ? 'remove' : 'add' }),
+    }).catch(() => {});
+    if (!remove) {
+      showToast('Hyped! The host sees the love');
+      if (el) {
+        const r = el.getBoundingClientRect();
+        floatPlus(r.left + r.width / 2 - 10, r.top - 6);
+      }
+    }
+  };
+  const tryHype = (id, el) => {
+    if (!user) return openGate(() => tryHype(id, null));
+    doHype(id, el, st.hypes.includes(id));
+  };
+
+  const requirePage = (name, param = null) => {
+    if (!user) return openGate(() => go(name, param));
+    go(name, param);
+  };
+
+  const openTab = (t) => {
+    if (!user && (t === 'saved' || t === 'profile')) return requirePage(t);
+    go(t);
+  };
+
+  /* ----- derived ----- */
+  const cur = useMemo(() => forms.find((f) => f.id === screen.param), [forms, screen.param]);
+  const feed = useMemo(
+    () =>
+      forms.filter(
+        (f) =>
+          filter === 'all' ||
+          (filter === 'tonight' && f.tonight) ||
+          (filter === 'free' && f.free) ||
+          (filter === 'nearby' && Number(f.km) <= 3)
+      ),
+    [forms, filter]
+  );
+  const savedList = useMemo(
+    () =>
+      forms
+        .filter((f) => st.saves.includes(f.id))
+        .filter((f) => sfilter === 'all' || (sfilter === 'live' && f.live) || (sfilter === 'soon' && !f.live)),
+    [forms, st.saves, sfilter]
+  );
+  const searchRes = useMemo(() => {
+    const q = searchQ.toLowerCase();
+    return forms.filter((f) => f.title.toLowerCase().includes(q) || f.area.toLowerCase().includes(q));
+  }, [forms, searchQ]);
+
+  const tabbed = ['home', 'map', 'saved', 'profile'].includes(screen.name);
+  useEffect(() => {
+    if (tabbed) setLastTab(screen.name);
+  }, [screen.name, tabbed]);
+
+  const f1 = forms.find((f) => f.id === 'f1');
+
+  /* ----- create ----- */
+  const postForm = () => {
+    const title = cTitle.trim();
+    if (title.length < 3) return showToast('Describe your plan first');
+    if (!user) return openGate(postForm);
+    const tags = cTags.join(', ');
+    const img = cPhoto ? IMGP(cPhoto, 800, 600) : IMGP('fng-default' + (Date.now() % 7), 800, 600);
+    fetch('/api/forms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        area: cLoc.trim() || 'Nairobi CBD',
+        desc: tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.',
+        img,
+      }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.form) {
+          setForms((prev) => [hydrate(j.form), ...prev]);
+          setSt((s) => ({ ...s, joins: [...s.joins, j.form.id] }));
+        }
+      })
+      .catch(() => {});
+    setCTitle('');
+    setCLoc('');
+    setCPhoto(null);
+    setCTags(['Rooftop']);
+    go('home');
+    showToast('Your plan is live!');
+    burstConfetti(window.innerWidth / 2, window.innerHeight * 0.4, true);
+  };
+
+  /* ----- handle setup ----- */
+  const onHandleInput = (v) => {
+    const bare = v.trim().toLowerCase().replace(/^@/, '').replace(/\s+/g, '');
+    setHandle(bare ? '@' + bare : '');
+    if (bare.length < 3) return setHandleMsg({ text: '3+ characters, no spaces.', kind: '' });
+    if ((meta.taken || []).includes(bare)) return setHandleMsg({ text: `@${bare} is taken`, kind: 'bad' });
+    setHandleMsg({ text: `@${bare} is available`, kind: 'ok' });
+  };
+  const submitHandle = () => {
+    const bare = handle.replace(/^@/, '');
+    if (bare.length < 3 || !user) return;
+    const u = { ...user, name: name.trim() || user.name, handle: '@' + bare };
+    setSt((s) => ({ ...s, user: u, ob: true }));
+    afterAuth(u);
+  };
+
+  const installApp = async () => {
+    setSettings(false);
+    if (deferred) {
+      deferred.prompt();
+      await deferred.userChoice.catch(() => {});
+      setDeferred(null);
+    } else showToast('Open the browser menu > Install / Add to Home Screen');
+  };
+
+  const on = (id) => id === screen.name || `scr-${screen.name}` === id;
+
+  return (
+    <div className="stage">
+      <div className="phone" id="phone">
+        <div className="sb">
+          <div className="sb-in" style={{ display: 'contents' }}>
+            <span className="sb-time">9:30</span>
+            <span className="island" />
+            <svg width="70" height="13" viewBox="0 0 70 13" fill="currentColor" aria-hidden="true">
+              <rect x="0" y="7.5" width="3" height="5" rx="1" /><rect x="5" y="5.5" width="3" height="7" rx="1" /><rect x="10" y="3" width="3" height="9.5" rx="1" /><rect x="15" y="1" width="3" height="11.5" rx="1" />
+              <path d="M24.5 4.6a9.4 9.4 0 0112 0l-1.7 2a6.8 6.8 0 00-8.6 0z" /><path d="M27.3 7.8a5.3 5.3 0 016.4 0l-1.8 2.2a2.6 2.6 0 00-2.8 0z" /><circle cx="30.5" cy="11" r="1.4" />
+              <rect x="46" y="1.5" width="19" height="10" rx="3" fill="none" stroke="currentColor" opacity=".4" /><rect x="48" y="3.5" width="13" height="6" rx="1.5" /><rect x="66.5" y="4.5" width="2" height="4" rx="1" opacity=".4" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="screens">
+          {/* SPLASH */}
+          <section className={`screen s-splash ${on('splash') ? 'on' : ''}`}>
+            <div className="scr splash-scr">
+              <ThreeHero className="splash-three" />
+              <div className="logo-lock">
+                <svg viewBox="0 0 48 48" fill="none"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor" /><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#A21CAF" strokeWidth="2.7" strokeLinecap="round" /><circle cx="24.6" cy="28.9" r="1.6" fill="#A21CAF" /></svg>
+                <b>FormNiGani</b>
+              </div>
+            </div>
+          </section>
+
+          {/* ONBOARD 1 */}
+          <section className={`screen s-ob ${on('ob1') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
+              <div className="stack">
+                <img className="p1" src="https://picsum.photos/seed/fng-sunset-girl/600/720" alt="" />
+                <img className="p2" src="https://picsum.photos/seed/fng-friends/600/720" alt="" />
+              </div>
+              <h1>There&apos;s always<br /><em className="hl">a plan near you.</em></h1>
+              <p>The best nights in the city are happening right now. Don&apos;t miss out.</p>
+              <div className="dots"><i className="on" /><i /></div>
+              <div className="ob-pad" />
+              <button className="btn-black" onClick={() => go('ob2')}>Continue</button>
+            </div>
+          </section>
+
+          {/* ONBOARD 2 */}
+          <section className={`screen s-ob ${on('ob2') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
+              <div className="stack">
+                <img className="p1" src="https://picsum.photos/seed/fng-crowd/600/720" alt="" />
+                <img className="p2" src="https://picsum.photos/seed/fng-dance/600/720" alt="" />
+                <span className="chip-badge"><i className="dot" />LIVE</span>
+                <span className="chip-badge chip-l"><i className="dot mute" />Ending soon</span>
+              </div>
+              <h1>People post. You<br /><em className="hl">show up.</em></h1>
+              <p>Discover plans around you and join the moments that matter.</p>
+              <div className="dots"><i /><i className="on" /></div>
+              <div className="ob-pad" />
+              <button className="btn-black" onClick={() => go('auth')}>Continue</button>
+            </div>
+          </section>
+
+          {/* AUTH */}
+          <section className={`screen s-auth ${on('auth') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="bgimg" />
+              <ThreeHero className="auth-three" />
+              <div className="veil" />
+              <div className="inner">
+                <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
+                <h1>Every day has<br /><em style={{ color: '#F07BE8', fontStyle: 'normal' }}>a plan.</em></h1>
+                <p className="sub">Real people, real plans — happening near you right now.</p>
+                <GoogleButton id="auth" onClick={() => simulateGoogle(afterAuth)} />
+                <button className="ghost-link" onClick={() => go('home')}>Just looking around — continue as guest</button>
+              </div>
+            </div>
+          </section>
+
+          {/* HANDLE */}
+          <section className={`screen s-handle ${on('handle') ? 'on' : ''}`}>
+            <div className="scr">
+              <button className="iconbtn back" onClick={() => go('auth')} aria-label="Back">{I.back}</button>
+              <img className="ava" src="https://i.pravatar.cc/120?img=12" alt="" />
+              <h2>What should we call you?</h2>
+              <p className="sub">Pick a handle — that&apos;s how people find you.</p>
+              <div className="hcard">
+                <label>Your name</label>
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+                <label>Your handle</label>
+                <input className="input" value={handle} onChange={(e) => onHandleInput(e.target.value)} placeholder="@nightowl" autoComplete="off" spellCheck="false" />
+                <div className={`hmsg ${handleMsg.kind}`}>{handleMsg.text}</div>
+              </div>
+              <button className="btn-black" disabled={handleMsg.kind !== 'ok'} onClick={submitHandle}>Continue</button>
+              <div className="hnote">You can change this later in settings.</div>
+            </div>
+          </section>
+
+          {/* HOME */}
+          <section className={`screen s-home ${on('home') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="pagehead">
+                <div>
+                  <div className="loc">Westlands, Nairobi. <LiveDot status={liveStatus} /></div>
+                  <h1>What&apos;s the plan?</h1>
+                </div>
+                <div className="acts">
+                  <button className="iconbtn" aria-label="Search" onClick={() => { setSearchQ(''); setSearchOpen(true); }}>{I.search}</button>
+                  <button className="iconbtn bellwrap" aria-label="Notifications" onClick={() => { setUnread(0); requirePage('notifs'); }}>
+                    {I.bell}{unread > 0 && <i className="bell-dot">{unread > 9 ? '9+' : unread}</i>}
+                  </button>
+                </div>
+              </div>
+              <StoriesRail forms={forms} seen={new Set(seen)} onOpen={(i) => setStoryIdx(i)} />
+              <div className="pillrow page">
+                {[['all', 'All'], ['tonight', 'Tonight'], ['free', 'Free'], ['nearby', 'Nearby']].map(([v, l]) => (
+                  <button key={v} className={`pill ${filter === v ? 'on' : ''}`} onClick={() => setFilter(v)}>{l}</button>
+                ))}
+              </div>
+              <div className="cards">
+                {feed.length ? feed.map((f) => (
+                  <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} />
+                )) : <p className="empty">No plans match this filter — try &quot;All&quot;.</p>}
+              </div>
+            </div>
+          </section>
+
+          {/* SAVED */}
+          <section className={`screen s-saved ${on('saved') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="pagehead">
+                <h1>Saved</h1>
+                <div className="acts">
+                  <button className="iconbtn" aria-label="Search" onClick={() => { setSearchQ(''); setSearchOpen(true); }}>{I.search}</button>
+                </div>
+              </div>
+              <div className="pillrow page">
+                {[['all', 'All'], ['live', 'Live now'], ['soon', 'Starting soon']].map(([v, l]) => (
+                  <button key={v} className={`pill ${sfilter === v ? 'on' : ''}`} onClick={() => setSfilter(v)}>{l}</button>
+                ))}
+              </div>
+              <div className="cards">
+                {savedList.length ? savedList.map((f) => (
+                  <Card key={f.id} f={f} saved hyped={st.hypes.includes(f.id)} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} />
+                )) : <p className="empty">Nothing saved yet — tap the bookmark on any plan to keep it here.</p>}
+              </div>
+            </div>
+          </section>
+
+          {/* PROFILE */}
+          <section className={`screen s-profile ${on('profile') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="pagehead">
+                <h1>Profile</h1>
+                <div className="acts">
+                  <button className="iconbtn" aria-label="Settings" onClick={() => {
+                    setSettings(true);
+                  }}>{I.gear}</button>
+                </div>
+              </div>
+              <div className="prof-top">
+                <img className="ava" src={user?.photo || 'https://i.pravatar.cc/160?img=12'} alt="" />
+                <div className="nrow">
+                  <h3>{user?.name || 'Guest'}</h3>
+                  <button className="edit" onClick={() => {
+                    if (!user) return openGate();
+                    setName(user.name);
+                    setSettings(false);
+                    setEdit(true);
+                  }}>Edit</button>
+                </div>
+                <div className="hdl">{user?.handle || '@guest'}</div>
+              </div>
+              <div className="stats">
+                <div className="stat"><b>12</b><span>Hosted</span></div>
+                <div className="stat"><b>{47 + st.joins.length}</b><span>Going</span></div>
+                <div className="stat"><b>{st.hypes.length}</b><span>Hype given</span></div>
+              </div>
+              <div className="moments">
+                <h4>Your moments</h4>
+                <div className="grid9">
+                  {[...Array(9)].map((_, i) => (
+                    <img key={i} src={IMGP('fng-m' + i, 300, 300)} alt={`moment ${i + 1}`} loading="lazy" onClick={() => showToast(`Moment ${i + 1} — gallery coming soon`)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* MAP */}
+          <section className={`screen s-map ${on('map') ? 'on' : ''}`}>
+            <div className="scr">
+              <svg className="mapsvg" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="400" height="800" fill="#EDEFF1" />
+                <g stroke="#FFFFFF" fill="none" strokeLinecap="round">
+                  <path d="M-20 120 H420" strokeWidth="12" /><path d="M-20 300 H420" strokeWidth="7" /><path d="M-20 470 H420" strokeWidth="9" /><path d="M-20 640 H420" strokeWidth="6" />
+                  <path d="M70 -20 V820" strokeWidth="9" /><path d="M180 -20 V820" strokeWidth="6" /><path d="M290 -20 V820" strokeWidth="11" /><path d="M355 -20 V820" strokeWidth="5" />
+                  <path d="M-20 210 L420 190" strokeWidth="4" /><path d="M-20 560 L420 540" strokeWidth="4" />
+                </g>
+                <ellipse cx="330" cy="215" rx="42" ry="30" fill="#DDEFDC" /><ellipse cx="120" cy="520" rx="34" ry="26" fill="#DDEFDC" />
+                <path d="M60 60 V200 Q60 230 90 230 H180 Q210 230 210 260 V560 Q210 590 240 590 H310 Q335 590 335 620 V655" fill="none" stroke="#49AAFF" strokeWidth="7" strokeLinecap="round" />
+                <circle cx="60" cy="60" r="6" fill="#FF4D4D" stroke="#fff" strokeWidth="2.5" />
+                <circle className="pulse" cx="335" cy="655" r="20" fill="#49AAFF" opacity=".4" />
+                <circle cx="335" cy="655" r="9" fill="#1E90FF" stroke="#fff" strokeWidth="3.5" />
+                <g fill="#9AA0A6" fontFamily="'Plus Jakarta Sans',sans-serif" fontSize="12" fontWeight="600">
+                  <text x="84" y="245">Chiromo Lane</text>
+                  <text x="296" y="140" transform="rotate(90 296 140)">Rhapta Road</text>
+                  <text x="20" y="480">Mpaka Road</text>
+                  <text x="230" y="112">Ring Rd Westlands</text>
+                </g>
+              </svg>
+              <div className="map-search" onClick={() => { setSearchQ(''); setSearchOpen(true); }}>
+                {I.search} Search area
+              </div>
+              <div className="map-card" onClick={() => go('form', 'f1')}>
+                <img src="https://picsum.photos/seed/fng-bonfire/400/400" alt="" />
+                <div>
+                  <h4>Bonfire + acoustic night</h4>
+                  <span className="darkpill"><i className="dot" />{f1 ? `${f1.km} km • Live • ${fmt(f1.viewers)} watching` : '1.2 km • Live'}</span>
+                  <div className="more">+22 more plans near you</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* DETAIL */}
+          <section className={`screen s-form ${on('form') ? 'on' : ''}`}>
+            <div className="scr" style={{ position: 'relative' }}>
+              <div className="hero">
+                {cur && <Image src={cur.img} alt="" fill sizes="400px" style={{ objectFit: 'cover' }} priority />}
+                <button className="back" onClick={() => go(lastTab || 'home')} aria-label="Back">{I.back}</button>
+                <span className="chip-badge">
+                  {cur?.live ? <><i className="dot" />LIVE</> : <><i className="dot mute" />{cur?.startsShort || 'Starting soon'}</>}
+                </span>
+              </div>
+              <div className="sheet">
+                <h2>{cur?.title || '—'}</h2>
+                {cur?.live && (
+                  <div className="livebar">
+                    <span className="live-eye">{I.eye}<b>{fmt(cur.viewers)}</b>&nbsp;watching now</span>
+                    <button className={`hype-btn ${st.hypes.includes(cur.id) ? 'on' : ''}`} onClick={(e) => tryHype(cur.id, e.currentTarget)}>
+                      {I.flame}<b>{fmt(cur.hype)}</b>&nbsp;hype
+                    </button>
+                  </div>
+                )}
+                <div className="avs">
+                  {(cur?.avs || []).slice(0, 4).map((n) => (
+                    <img key={n} src={AVA(n)} alt="" />
+                  ))}
+                  <span>{cur ? `${cur.going} already here` : ''}</span>
+                </div>
+                <div className="meta">
+                  <div>{I.pin}<span>{cur ? `${cur.km} km away` : '—'}</span></div>
+                  <div>{I.clock}<span>{cur?.ends || '—'}</span></div>
+                </div>
+                <hr />
+                <p className="desc">{cur?.desc}</p>
+                {cur && !cur.live && (
+                  <button className={`hype-btn ${st.hypes.includes(cur.id) ? 'on' : ''}`} onClick={(e) => tryHype(cur.id, e.currentTarget)} style={{ marginTop: 14 }}>
+                    {I.flame}<b>{fmt(cur.hype)}</b>&nbsp;hype this plan
+                  </button>
+                )}
+              </div>
+              <div className="form-actions">
+                <button className="btn-ghost" onClick={() => go(lastTab || 'home')}>Pass</button>
+                <button className={`btn-primary ${cur && st.joins.includes(cur.id) ? 'joined' : ''}`} onClick={(e) => cur && tryJoin(cur.id, e.currentTarget)}>
+                  {cur && st.joins.includes(cur.id) ? "You're In" : "I'm In!"}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* CREATE */}
+          <section className={`screen s-create ${on('create') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="cre-head">
+                <button className="xbtn" onClick={() => go('home')} aria-label="Close">{I.close}</button>
+                <h2>New Plan</h2>
+                <button className="post" disabled={cTitle.trim().length < 3} onClick={postForm}>Post</button>
+              </div>
+              <button
+                className={`photo ${cPhoto ? 'has' : ''}`}
+                style={cPhoto ? { backgroundImage: `url(${IMGP(cPhoto, 800, 500)})` } : undefined}
+                onClick={() => setCPhoto('fng-post-' + Math.floor(Math.random() * 9999))}
+              >
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.5A2.5 2.5 0 015.5 6h1.6L8.6 4h6.8l1.5 2h1.6A2.5 2.5 0 0121 8.5v9a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 17.5z" /><circle cx="12" cy="13" r="3.4" /></svg>
+                <span id="cPhotoTxt" style={cPhoto ? { background: 'rgba(0,0,0,.45)', color: '#fff', padding: '6px 14px', borderRadius: 999 } : undefined}>
+                  {cPhoto ? 'Change photo' : 'Add photo'}
+                </span>
+              </button>
+              <label className="flabel">What&apos;s the plan?</label>
+              <input className="input" value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="Rooftop hang, bring snacks..." autoComplete="off" />
+              <label className="flabel">Where?</label>
+              <input className="input" value={cLoc} onChange={(e) => setCLoc(e.target.value)} placeholder="Location — e.g. Kileleshwa, rooftop" autoComplete="off" />
+              <div className="checkrow">
+                {['Right now', 'Later today'].map((label, i) => (
+                  <label key={label} className="check">
+                    <input type="checkbox" checked={when === i} onChange={() => setWhen(i)} />
+                    <span className="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></span>
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <div className="tags">
+                {(meta.tags || []).map((t) => (
+                  <button key={t} className={`tag ${cTags.includes(t) ? 'on' : ''}`} onClick={() => setCTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))}>{t}</button>
+                ))}
+              </div>
+              <button className="btn-go" onClick={postForm}>Share the Plan
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </div>
+          </section>
+
+          {/* NOTIFICATIONS */}
+          <section className={`screen s-notifs ${on('notifs') ? 'on' : ''}`}>
+            <div className="scr">
+              <div className="n-head">
+                <button className="xbtn" onClick={() => go('home')} aria-label="Back">{I.back}</button>
+                <h2>Notifications</h2>
+              </div>
+              <div className="pillrow page">
+                {[['up', 'Upcoming'], ['past', 'Past']].map(([v, l]) => (
+                  <button key={v} className={`pill ${nTab === v ? 'on' : ''}`} onClick={() => setNTab(v)}>{l}</button>
+                ))}
+              </div>
+              {nTab === 'up' && activity.length > 0 && (
+                <div className="activity">
+                  <h4><i className="vdot" /> Live activity</h4>
+                  {activity.slice(0, 5).map((a) => (
+                    <div key={a.id} className="arow"><span>{a.text}</span><em>{ago(a.ts)}</em></div>
+                  ))}
+                </div>
+              )}
+              <div className="nlist">
+                {(meta.notifs?.[nTab] || []).map((n, i) => (
+                  <div key={i} className="nrow" onClick={() => { setSearchOpen(false); go('form', n.id); }}>
+                    <img src={IMGP(n.seed, 300, 300)} alt="" />
+                    <div><h4>{n.t}</h4><span className={`darkpill ${nTab === 'past' ? 'mute' : ''}`}>{n.s}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* NAV */}
+        <div className={`nav-wrap ${tabbed ? '' : 'hide'}`}>
+          <nav className="nav">
+            <a className={screen.name === 'home' ? 'on' : ''} onClick={() => openTab('home')}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>Home</a>
+            <a className={screen.name === 'map' ? 'on' : ''} onClick={() => openTab('map')}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z" /><circle className="hole" cx="12" cy="10" r="2.5" /></svg>Map</a>
+            <a className={screen.name === 'saved' ? 'on' : ''} onClick={() => openTab('saved')}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4h12v17l-6-4-6 4z" /></svg>Saved</a>
+            <a className={screen.name === 'profile' ? 'on' : ''} onClick={() => openTab('profile')}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>Profile</a>
+          </nav>
+          <button className="fab" aria-label="Create" onClick={() => {
+            if (!user) return openGate(() => go('create'));
+            go('create');
+          }}>{I.plus}</button>
+        </div>
+
+        {/* SEARCH */}
+        {searchOpen && (
+          <div className="search-ov on">
+            <div className="so-head">
+              <input className="input" value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Search plans, places, vibes..." autoComplete="off" autoFocus />
+              <button className="iconbtn" aria-label="Close" onClick={() => setSearchOpen(false)}>{I.close}</button>
+            </div>
+            <div className="recent">
+              {(meta.recents || []).map((r) => (
+                <span key={r} className="pill" onClick={() => setSearchQ(r)}>{r}</span>
+              ))}
+            </div>
+            <div className="so-res">
+              {searchRes.length ? searchRes.map((f) => (
+                <div key={f.id} className="res-row" onClick={() => { setSearchOpen(false); go('form', f.id); }}>
+                  <img src={f.img} alt="" />
+                  <div><b>{f.title}</b><span>{f.area} · {f.km} km · {f.live ? 'LIVE' : f.startsShort}</span></div>
+                </div>
+              )) : <p className="empty">No matches — try &quot;rooftop&quot; or &quot;karaoke&quot;.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* GATE */}
+        {gate && (
+          <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) guestSkip(); }}>
+            <div className="panel">
+              <div className="grab" />
+              <h3>Welcome to FormNiGani</h3>
+              <p className="psub">Log in to join plans, host your own, and save your weekend highlights.</p>
+              <GoogleButton id="gate" onClick={() => simulateGoogle(afterAuth)} />
+              <button className="guest-skip" onClick={guestSkip}>Just looking around — continue as guest</button>
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {settings && (
+          <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) setSettings(false); }}>
+            <div className="panel">
+              <div className="grab" />
+              <h3>Settings</h3>
+              <p className="psub">{user ? `${user.name} · ${user.handle}` : 'Guest'}</p>
+              <div className="setrow" onClick={() => {
+                if (!user) return openGate();
+                setName(user.name);
+                setSettings(false);
+                setEdit(true);
+              }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
+                Edit profile<span className="spacer" />
+              </div>
+              <div className="setrow" onClick={() => {
+                setNotifOn((v) => !v);
+                showToast(notifOn ? 'Notifications off' : 'Notifications on');
+              }}>
+                Notifications<span className="spacer" /><span className={`switch ${notifOn ? 'on' : ''}`} />
+              </div>
+              <div className="setrow" onClick={installApp}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg>
+                <span>Install App</span><span className="spacer" />
+                {deferred && <span className="pill-mini">New</span>}
+              </div>
+              <div className="setrow danger" onClick={() => {
+                clearState();
+                setSt({ user: null, saves: [], joins: [], hypes: [], ob: false });
+                pending.current = null;
+                setSettings(false);
+                go('splash');
+              }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>
+                Log out
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT */}
+        {edit && (
+          <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) setEdit(false); }}>
+            <div className="panel">
+              <div className="grab" />
+              <h3>Edit profile</h3>
+              <p className="psub">Your name and handle is how people find you.</p>
+              <label className="flabel" style={{ marginTop: 0 }}>Name</label>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+              <label className="flabel">Handle</label>
+              <input className="input" value={user?.handle || ''} onChange={(e) => {
+                const v = e.target.value.trim();
+                setSt((s) => ({ ...s, user: { ...s.user, handle: v.startsWith('@') ? v : '@' + v } }));
+              }} />
+              <button className="btn-black" style={{ width: '100%', marginTop: 22 }} onClick={() => { setEdit(false); showToast('Profile saved'); }}>Save</button>
+            </div>
+          </div>
+        )}
+
+        {/* STORY VIEWER */}
+        {storyIdx != null && (
+          <StoryViewer
+            stories={forms}
+            index={storyIdx}
+            onClose={() => setStoryIdx(null)}
+            onIndex={setStoryIdx}
+            onSeen={(id) => setSeen((s) => (s.includes(id) ? s : [...s, id]))}
+            isHyped={(id) => st.hypes.includes(id)}
+            onHype={tryHype}
+          />
+        )}
+
+        {toast && <div className="toast on">{toast.msg}</div>}
+        {offline && <div className="offline-bar on">You&apos;re offline — saved plans still work</div>}
+        <div className="hi" />
+      </div>
+      <div className="stage-cap"><b>FormNiGani</b> — find your plan · live</div>
+    </div>
+  );
+}
+
+function BrandMark() {
+  return (
+    <svg viewBox="0 0 48 48"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor" /><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#fff" strokeWidth="2.7" strokeLinecap="round" /><circle cx="24.6" cy="28.9" r="1.6" fill="#fff" /></svg>
+  );
+}
+
+function GoogleButton({ onClick }) {
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    const t = setTimeout(() => setBusy(false), 1600);
+    return () => clearTimeout(t);
+  }, [busy]);
+  return (
+    <button className="btn-google" onClick={() => { setBusy(true); onClick(); }}>
+      <svg width="19" height="19" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.3H12v4.5h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.7 2.9c2.2-2 3.7-5 3.7-8.9z" /><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.8-2.9c-1 .7-2.4 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5l-3.8 2.9C3.4 21.3 7.4 24 12 24z" /><path fill="#FBBC05" d="M5.3 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4L1.5 6.7C.5 8.3 0 10.1 0 12s.5 3.7 1.5 5.3l3.8-2.9z" /><path fill="#EA4335" d="M12 4.6c2.2 0 3.7 1 4.6 1.8l3.4-3.3C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.5 6.7l3.8 2.9c.9-2.9 3.6-5 6.7-5z" /></svg>
+      <span>{busy ? 'Connecting...' : 'Continue with Google'}</span>
+    </button>
+  );
+}
+
+function LiveDot({ status }) {
+  return <span className={`live-dot ${status}`} title={status === 'live' ? 'Live updates on' : 'Connecting...'} />;
+}
+
+/* ---------- dom fx (ported) ---------- */
+function burstConfetti(x, y, big = false) {
+  const colors = ['#A21CAF', '#D637C0', '#F07BE8', '#FFC83D', '#22C55E', '#38BDF8'];
+  const n = big ? 34 : 18;
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement('i');
+    c.className = 'confetti';
+    c.style.left = x + (Math.random() * 40 - 20) + 'px';
+    c.style.top = y + (Math.random() * 10 - 5) + 'px';
+    c.style.background = colors[i % colors.length];
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 1400);
+  }
+}
+function floatPlus(x, y, text = '+1') {
+  const s = document.createElement('b');
+  s.className = 'float-plus';
+  s.textContent = text;
+  s.style.left = x + 'px';
+  s.style.top = y + 'px';
+  document.body.appendChild(s);
+  setTimeout(() => s.remove(), 850);
+}

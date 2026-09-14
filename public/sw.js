@@ -1,19 +1,22 @@
-/* FormNiGani service worker — app-shell caching with offline fallback. */
-const CACHE = 'fng-v2';
+/* FormNiGani service worker — Next.js app shell with offline fallback. */
+const CACHE = 'fng-v3';
 const SHELL = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './data/forms.json',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/maskable-512.png',
+  '/',
+  '/manifest.webmanifest',
+  '/data/forms.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/maskable-512.png',
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(SHELL))
+      .then(() => self.skipWaiting())
+      .catch(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -30,7 +33,15 @@ self.addEventListener('fetch', (e) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // App shell + icons: cache-first so the app opens offline.
+  // API + live stream: always network, never cache.
+  if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
+
+  // Navigations: network-first, fall back to cached shell offline.
+  if (request.mode === 'navigate') {
+    e.respondWith(fetch(request).catch(() => caches.match('/')));
+    return;
+  }
+
   if (url.origin === location.origin) {
     e.respondWith(
       caches.match(request).then(
@@ -46,14 +57,8 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Third-party images: network-first, no caching (fallback to cache on failure).
+  // Third-party images: network-first with cache fallback.
   if (request.destination === 'image') {
     e.respondWith(fetch(request).catch(() => caches.match(request)));
-    return;
-  }
-
-  // Page navigations while offline: fall back to the cached shell.
-  if (request.mode === 'navigate') {
-    e.respondWith(fetch(request).catch(() => caches.match('./index.html')));
   }
 });
