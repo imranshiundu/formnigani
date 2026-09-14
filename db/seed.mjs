@@ -77,16 +77,16 @@ async function main() {
   ok(`${seed.comments.length} comments`);
 
   // test users (throwaway passwords — change after first login)
-  for (const h of ['@imran', '@nia', '@kev']) {
+  for (const h of ['@nia', '@kev']) {
     const email = `${h.slice(1)}@test.formnigani.app`;
     const { data, error } = await sb.auth.admin.createUser({
       email, password: TEST_PASSWORD, email_confirm: true,
-      user_metadata: { name: h === '@imran' ? 'Imran' : h.slice(1) },
+      user_metadata: { name: h.slice(1) },
     });
     if (error && !String(error.message).includes('already')) { fail.push(`user ${email}: ` + error.message); continue; }
     const uid = data?.user?.id || (await sb.auth.admin.listUsers()).data.users.find((u) => u.email === email)?.id;
     if (uid) {
-      await sb.from('profiles').upsert({ id: uid, handle: h, name: h === '@imran' ? 'Imran' : h.slice(1) }, { onConflict: 'id' });
+      await sb.from('profiles').upsert({ id: uid, handle: h, name: h.slice(1) }, { onConflict: 'id' });
     }
     ok(`test user ${email}`);
   }

@@ -276,6 +276,7 @@ export default function App() {
   const [cTags, setCTags] = useState(['Rooftop']);
   const [em, setEm] = useState('');
   const [emPw, setEmPw] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [emMode, setEmMode] = useState('in');
   const [emErr, setEmErr] = useState('');
   const [emBusy, setEmBusy] = useState(false);
@@ -386,26 +387,43 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedState]);
 
-  /* ----- supabase session -> local user mirror + server state ----- */
+  /* ----- supabase session -> local user mirror + server state -----
+     Runs only on session/profile transitions (never on screen changes), so
+     the app never snaps the user around mid-editing. */
+  const setupDone = useRef(false);
+  const prevSbUser = useRef(null);
   useEffect(() => {
     if (!SB || auth.loading) return;
+    const sbu = auth.sbUser;
     const p = auth.profile;
-    if (auth.sbUser && p && !String(p.handle).startsWith('@user_')) {
-      setSt((s) => ({
-        ...s,
-        user: { name: p.name, handle: p.handle, photo: db.profilePhoto(p) },
-        ob: true,
-      }));
-      db.myState(p.id)
-        .then((m) => setSt((s) => ({ ...s, saves: m.saves, joins: m.joins, hypes: m.hypes })))
-        .catch(() => {});
-    } else if (auth.sbUser && screen.name !== 'handle') {
-      if (!p) auth.refreshProfile();
-      setName(p?.name || '');
-      go('handle');
+    const justLoggedIn = !!sbu && !prevSbUser.current;
+    prevSbUser.current = sbu || null;
+    if (sbu && p) {
+      if (!String(p.handle).startsWith('@user_')) {
+        setupDone.current = true;
+        setSt((s) => ({
+          ...s,
+          user: { name: p.name, handle: p.handle, photo: db.profilePhoto(p) },
+          ob: true,
+        }));
+        db.myState(p.id)
+          .then((m) => setSt((s) => ({ ...s, saves: m.saves, joins: m.joins, hypes: m.hypes })))
+          .catch(() => {});
+      } else if (justLoggedIn && !setupDone.current) {
+        // fresh account: one-time username setup
+        setupDone.current = true;
+        setName(p.name || '');
+        go('handle');
+      }
     }
+  }, [SB, auth.loading, auth.sbUser, auth.profile]);
+
+  /* ----- guest consistency: local mirror follows the real session ----- */
+  useEffect(() => {
+    if (!SB || auth.loading) return;
+    if (!auth.sbUser && st.user) setSt((s) => ({ ...s, user: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [SB, auth.loading, auth.sbUser, auth.profile, screen.name]);
+  }, [SB, auth.loading, auth.sbUser]);
 
   /* ----- splash flow ----- */
   useEffect(() => {
@@ -954,7 +972,16 @@ export default function App() {
                 {SB && (
                   <div className="emailbox">
                     <input className="input" value={em} onChange={(e) => setEm(e.target.value)} placeholder="Email address" inputMode="email" autoComplete="email" onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
-                    <input className="input" type="password" value={emPw} onChange={(e) => setEmPw(e.target.value)} placeholder="Password (6+ characters)" autoComplete={emMode === 'up' ? 'new-password' : 'current-password'} onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
+                    <div className="pw-wrap">
+                      <input className="input" type={showPw ? 'text' : 'password'} value={emPw} onChange={(e) => setEmPw(e.target.value)} placeholder="Password (6+ characters)" autoComplete={emMode === 'up' ? 'new-password' : 'current-password'} onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
+                      <button type="button" className="pw-eye" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+                        {showPw ? (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" /><path d="M14.12 14.12a3 3 0 11-4.24-4.24" /><path d="M1 1l22 22" /></svg>
+                        ) : (
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
+                        )}
+                      </button>
+                    </div>
                     {emErr ? <div className="hmsg bad">{emErr}</div> : <div className="hmsg" />}
                     <button className="btn-go" onClick={doEmail} disabled={emBusy}>
                       {emBusy ? 'One moment...' : emMode === 'up' ? 'Create account' : 'Log in'}
@@ -1082,6 +1109,11 @@ export default function App() {
                   </div>
                   <div className="pub-cta">
                     <button className="hype-btn" onClick={() => shareProfile(user.handle, user.name)}>{I.share} Share profile</button>
+                  </div>
+                  <div className="editrow" onClick={openEdit}>
+                    <span>Edit profile</span>
+                    <span className="editrow-sub">Photo, name, handle, vibes</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
                   </div>
                   <div className="stats">
                     <div className="stat"><b>12</b><span>Hosted</span></div>
