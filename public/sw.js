@@ -1,5 +1,5 @@
 /* FormNiGani service worker — Next.js app shell with offline fallback. */
-const CACHE = 'fng-v3';
+const CACHE = 'fng-v4';
 const SHELL = [
   '/',
   '/manifest.webmanifest',

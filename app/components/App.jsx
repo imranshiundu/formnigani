@@ -17,6 +17,7 @@ import {
 } from '@/lib/client-store';
 import { FlameBurst, StoriesRail, StoryViewer } from './Stories';
 import CommentSheet from './Comments';
+import StatusComposer from './StatusComposer';
 import { ProfileSheet, RichText } from './Social';
 import { db, isConfigured } from '@/lib/db';
 import { rowToForm } from '@/lib/db/supabase';
@@ -246,6 +247,10 @@ export default function App() {
       if (m) return { name: 'form', param: m[1] };
       m = h.match(/^#\/@([\w]+)/);
       if (m) return { name: 'profile', param: '@' + m[1].toLowerCase() };
+      // Plain tab hashes are never restored — the app always boots at Discovery.
+      if (/^#\/(home|saved|profile|notifs|map)/.test(h)) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     } catch {}
     return { name: 'splash', param: null };
   });
@@ -307,6 +312,13 @@ export default function App() {
   const [deferred, setDeferred] = useState(null);
   const [notifOn, setNotifOn] = useState(true);
   const [when, setWhen] = useState(0);
+  const [statuses, setStatuses] = useState([]);
+  const [statusIdx, setStatusIdx] = useState(null);
+  const [composer, setComposer] = useState(false);
+  const [newCount, setNewCount] = useState(0);
+  const [profTab, setProfTab] = useState('attended');
+  const [profEvents, setProfEvents] = useState({ attended: [], hosted: [] });
+  const [profEventsState, setProfEventsState] = useState('idle');
   const [sheet, setSheet] = useState(null); // formId with open comment sheet
   const [profSheet, setProfSheet] = useState(null); // handle with open profile sheet
   const [comments, setComments] = useState({}); // formId -> list // [BACKEND]
@@ -324,7 +336,17 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
 
-  const go = useCallback((name, param = null) => setScreen({ name, param }), []);
+  const go = useCallback((name, param = null) => {
+    setScreen({ name, param });
+    // Keep the URL in sync directly — never rely on hashchange firing.
+    try {
+      let h = '';
+      if (name === 'form' && param) h = `#/form/${param}`;
+      else if (name === 'profile' && param) h = `#/@${String(param).replace(/^@/, '')}`;
+      else if (['home', 'saved', 'profile', 'notifs'].includes(name)) h = `#/${name}`;
+      if (h && window.location.hash !== h) window.location.hash = h;
+    } catch {}
+  }, []);
 
   const doShare = useCallback(
     async ({ title, text, path }) => {
@@ -379,6 +401,50 @@ export default function App() {
     const t = setInterval(loadFeed, 30000); // gentle consistency sweep; interactions merge in realtime
     return () => clearInterval(t);
   }, [loadFeed]);
+
+  /* ----- statuses (user stories) ----- */
+  const loadStatuses = useCallback(() => {
+    db.listStatuses()
+      .then((list) => setStatuses(list))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadStatuses();
+  }, [loadStatuses]);
+
+  /* ----- profile events (attended / hosted) ----- */
+  const loadProfEvents = useCallback((handle, pid) => {
+    if (!handle) return;
+    setProfEventsState('loading');
+    Promise.all([db.hostedEvents(handle), pid ? db.attendedEvents(pid) : Promise.resolve([])])
+      .then(([hosted, attended]) => {
+        setProfEvents({ hosted, attended });
+        setProfEventsState('ready');
+      })
+      .catch(() => setProfEventsState('error'));
+  }, []);
+
+  /* ----- profile events load when the profile screen opens ----- */
+  const [pubProfile, setPubProfile] = useState(null);
+  useEffect(() => {
+    if (screen.name !== 'profile') return;
+    if (isOwnProfile && user) {
+      loadProfEvents(user.handle, profId);
+      return;
+    }
+    if (!isOwnProfile && viewingHandle) {
+      let cancelled = false;
+      db.profileByHandle(viewingHandle).then((p) => {
+        if (cancelled) return;
+        setPubProfile(p || null);
+        loadProfEvents(viewingHandle, p?.id || null);
+      }).catch(() => loadProfEvents(viewingHandle, null));
+      return () => {
+        cancelled = true;
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen.name, screen.param, isOwnProfile, user?.handle, profId]);
 
   /* ----- deep-link validation once the backend answers ----- */
   useEffect(() => {
@@ -487,11 +553,15 @@ export default function App() {
           showToast(`${c.user?.name || 'Someone'} commented on your Form`);
         }
       } else if (ev.kind === 'forms' && ev.row) {
-        const next = mergeFormRow(ev.row);
         if (ev.type === 'INSERT') {
+          const next = mergeFormRow(ev.row);
           pushActivity(`New plan near you: ${next.title}`);
-          showToast('New plan just dropped');
+          setNewCount((c) => c + 1);
+        } else {
+          mergeFormRow(ev.row);
         }
+      } else if (ev.kind === 'status') {
+        loadStatuses();
       } else if (ev.kind === 'hype' && ev.row) {
         const d = ev.type === 'DELETE' ? -1 : 1;
         setForms((prev) => prev.map((f) => (f.id === ev.row.form_id ? { ...f, hype: Math.max(0, f.hype + d) } : f)));
@@ -508,12 +578,14 @@ export default function App() {
   /* ----- auth ----- */
   const [ePhoto, setEPhoto] = useState(null);
   const [eVibes, setEVibes] = useState([]);
+  const [eBio, setEBio] = useState('');
   const fileRef = useRef(null);
   const openEdit = () => {
     if (!user) return openGate();
     setName(user.name);
     setEPhoto(user.photo);
     setEVibes(auth.profile?.vibes || []);
+    setEBio(auth.profile?.bio || '');
     setSettings(false);
     setEdit(true);
   };
@@ -696,6 +768,30 @@ export default function App() {
   /* ----- derived ----- */
   const cur = useMemo(() => forms.find((f) => f.id === screen.param), [forms, screen.param]);
   const vibes = auth.profile?.vibes || [];
+
+  /* ----- unified story items: statuses first, then form stories ----- */
+  const storyItems = useMemo(() => {
+    const statusItems = statuses.map((s) => ({ ...s, kind: s.trackUrl ? 'music' : 'status' }));
+    const formItems = [...forms]
+      .sort((a, b) => Number(b.live ?? false) - Number(a.live ?? false))
+      .map((f) => ({ ...f, kind: 'form' }));
+    return [...statusItems, ...formItems];
+  }, [statuses, forms]);
+
+  const postStatus = async (payload) => {
+    if (!profId) {
+      showToast('Syncing your profile — try again in a moment');
+      return;
+    }
+    try {
+      await db.addStatus(payload, profId);
+      showToast('Status is live');
+      loadStatuses();
+    } catch (e) {
+      showToast(e.message || 'Could not post — try again');
+    }
+  };
+
   const feed = useMemo(() => {
     const list = forms.filter(
       (f) =>
@@ -811,12 +907,7 @@ export default function App() {
     !isOwnProfile && viewingHandle
       ? forms.map((f) => f.host).find((h) => h && h.handle.toLowerCase() === viewingHandle.toLowerCase()) || null
       : null;
-  const pubForms =
-    !isOwnProfile && viewingHandle
-      ? forms.filter((f) => f.host && f.host.handle.toLowerCase() === viewingHandle.toLowerCase())
-      : [];
-  const pubHype = pubForms.reduce((a, f) => a + (f.hype || 0), 0);
-  const pubGoing = pubForms.reduce((a, f) => a + (f.going || 0), 0);
+  const pubBio = pubProfile?.bio || '';
 
   /* ----- create ----- */
   const postForm = () => {
@@ -1028,7 +1119,33 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <StoriesRail forms={forms} seen={new Set(seen)} onOpen={(i) => setStoryIdx(i)} />
+              <StoriesRail
+                statuses={statuses}
+                forms={forms}
+                seen={new Set(seen)}
+                meHandle={user?.handle}
+                onOpen={(kind, id) => {
+                  const items = storyItems;
+                  const i = items.findIndex((x) => x.id === id);
+                  if (i >= 0) setStoryIdx(i);
+                }}
+                onAdd={() => {
+                  if (!user) return openGate(() => { setComposer(true); });
+                  setComposer(true);
+                }}
+              />
+              {newCount > 0 && (
+                <button
+                  className="newchip"
+                  onClick={() => {
+                    setNewCount(0);
+                    const scr = document.querySelector('#scr-home .scr') || document.querySelector('.s-home .scr');
+                    if (scr) scr.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <i className="vdot" />{newCount} new plan{newCount === 1 ? '' : 's'} — tap to view
+                </button>
+              )}
               <div className="pillrow page">
                 {[['all', 'All'], ['tonight', 'Tonight'], ['free', 'Free'], ['nearby', 'Nearby']].map(([v, l]) => (
                   <button key={v} className={`pill ${filter === v ? 'on' : ''}`} onClick={() => setFilter(v)}>{l}</button>
@@ -1078,11 +1195,20 @@ export default function App() {
               <div className="pagehead">
                 <h1>{isOwnProfile ? 'Profile' : viewingHandle}</h1>
                 <div className="acts">
+                  {user && (
+                    <button
+                      className="iconbtn"
+                      aria-label="Share profile"
+                      onClick={() => {
+                        if (isOwnProfile) shareProfile(user.handle, user.name);
+                        else if (pubHost) shareProfile(pubHost.handle, pubHost.name);
+                      }}
+                    >
+                      {I.share}
+                    </button>
+                  )}
                   {isOwnProfile && user && (
                     <button className="iconbtn" aria-label="Settings" onClick={() => setSettings(true)}>{I.gear}</button>
-                  )}
-                  {!isOwnProfile && pubHost && (
-                    <button className="iconbtn" aria-label="Share profile" onClick={() => shareProfile(pubHost.handle, pubHost.name)}>{I.share}</button>
                   )}
                 </div>
               </div>
@@ -1102,38 +1228,31 @@ export default function App() {
                       <button className="edit" onClick={openEdit}>Edit</button>
                     </div>
                     <div className="hdl">{user.handle}</div>
+                    {auth.profile?.bio ? <p className="prof-bio">{auth.profile.bio}</p> : null}
                   </div>
                   <div className="link-row">
                     <span>{typeof window !== 'undefined' ? window.location.host : 'formnigani.com'}/@{String(user.handle || '').replace(/^@/, '')}</span>
                     <button onClick={() => copyLink(profileUrl(user.handle))}>Copy</button>
                   </div>
-                  <div className="pub-cta">
-                    <button className="hype-btn" onClick={() => shareProfile(user.handle, user.name)}>{I.share} Share profile</button>
-                  </div>
                   <div className="editrow" onClick={openEdit}>
                     <span>Edit profile</span>
-                    <span className="editrow-sub">Photo, name, handle, vibes</span>
+                    <span className="editrow-sub">Photo, name, bio, handle, vibes</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
                   </div>
-                  <div className="stats">
-                    <div className="stat"><b>12</b><span>Hosted</span></div>
-                    <div className="stat"><b>{47 + st.joins.length}</b><span>Going</span></div>
-                    <div className="stat"><b>{st.hypes.length}</b><span>Hype given</span></div>
-                  </div>
-                  <div className="moments">
-                    <h4>Your moments</h4>
-                    <div className="grid9">
-                      {[...Array(9)].map((_, i) => (
-                        <img key={i} src={IMGP('fng-m' + i, 300, 300)} alt={`moment ${i + 1}`} loading="lazy" onClick={() => showToast(`Moment ${i + 1} — gallery coming soon`)} />
-                      ))}
-                    </div>
-                  </div>
+                  <ProfileEvents
+                    tab={profTab}
+                    onTab={setProfTab}
+                    events={profEvents}
+                    state={profEventsState}
+                    onOpen={(id) => go('form', id)}
+                    st={st}
+                  />
                 </>
               )}
               {!isOwnProfile && !pubHost && (
                 <div className="guest-prompt">
                   <h3>No one here yet</h3>
-                  <p>{viewingHandle} hasn&apos;t posted a plan. Explore what&apos;s live instead.</p>
+                  <p>{viewingHandle} hasn't posted a plan. Explore what's live instead.</p>
                   <button className="btn-black" onClick={() => go('home')}>Explore plans</button>
                 </div>
               )}
@@ -1143,23 +1262,16 @@ export default function App() {
                     <img className="ava" src={hostPhoto(pubHost)} alt="" />
                     <div className="nrow"><h3>{pubHost.name}</h3></div>
                     <div className="hdl">{pubHost.handle}</div>
+                    {pubBio ? <p className="prof-bio">{pubBio}</p> : null}
                   </div>
-                  <div className="pub-cta">
-                    <button className="hype-btn" onClick={() => shareProfile(pubHost.handle, pubHost.name)}>{I.share} Share profile</button>
-                  </div>
-                  <div className="stats">
-                    <div className="stat"><b>{pubForms.length}</b><span>Hosted</span></div>
-                    <div className="stat"><b>{fmt(pubHype)}</b><span>Hype</span></div>
-                    <div className="stat"><b>{pubGoing}</b><span>Going</span></div>
-                  </div>
-                  <div className="moments">
-                    <h4>Hosted plans</h4>
-                    <div className="cards">
-                      {pubForms.map((f) => (
-                        <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
-                      ))}
-                    </div>
-                  </div>
+                  <ProfileEvents
+                    tab={profTab}
+                    onTab={setProfTab}
+                    events={profEvents}
+                    state={profEventsState}
+                    onOpen={(id) => go('form', id)}
+                    st={st}
+                  />
                 </>
               )}
             </div>
@@ -1467,6 +1579,15 @@ export default function App() {
                   <img key={n} src={AVA(n)} alt="" className={ePhoto === AVA(n) ? 'on' : ''} onClick={() => setEPhoto(AVA(n))} />
                 ))}
               </div>
+              <label className="flabel">Bio</label>
+              <textarea
+                className="input"
+                value={eBio}
+                onChange={(e) => setEBio(e.target.value)}
+                placeholder="Tell people what you're about..."
+                maxLength={160}
+                rows={2}
+              />
               <label className="flabel">Your vibes</label>
               <div className="tags">
                 {(meta.tags || []).map((t) => (
@@ -1493,7 +1614,7 @@ export default function App() {
                       showToast('That handle is taken');
                       return;
                     }
-                    await auth.saveProfile({ name: name.trim() || undefined, handle: h || undefined, avatar_url: ePhoto || user?.photo, vibes: eVibes });
+                    await auth.saveProfile({ name: name.trim() || undefined, handle: h || undefined, avatar_url: ePhoto || user?.photo, vibes: eVibes, bio: eBio.trim() });
                     setEdit(false);
                     showToast('Profile saved');
                   } catch (e) {
@@ -1512,13 +1633,25 @@ export default function App() {
         {/* STORY VIEWER */}
         {storyIdx != null && (
           <StoryViewer
-            stories={forms}
+            items={storyItems}
             index={storyIdx}
             onClose={() => setStoryIdx(null)}
             onIndex={setStoryIdx}
             onSeen={(id) => setSeen((s) => (s.includes(id) ? s : [...s, id]))}
             isHyped={(id) => st.hypes.includes(id)}
             onHype={tryHype}
+            onProfile={(h) => {
+              setStoryIdx(null);
+              go('profile', h);
+            }}
+          />
+        )}
+
+        {/* STATUS COMPOSER */}
+        {composer && (
+          <StatusComposer
+            onClose={() => setComposer(false)}
+            onPost={postStatus}
           />
         )}
 
@@ -1562,6 +1695,47 @@ export default function App() {
       </div>
       <div className="stage-cap"><b>FormNiGani</b> — find your plan · live</div>
     </div>
+  );
+}
+
+function ProfileEvents({ tab, onTab, events, state, onOpen, st }) {
+  const list = tab === 'hosted' ? events.hosted : events.attended;
+  return (
+    <>
+      <div className="stats">
+        <div className="stat"><b>{events.hosted.length}</b><span>Hosted</span></div>
+        <div className="stat"><b>{events.attended.length}</b><span>Attended</span></div>
+        <div className="stat"><b>{fmt(events.hosted.reduce((a, f) => a + (f.hype || 0), 0))}</b><span>Hype</span></div>
+      </div>
+      <div className="ptabs">
+        <button className={`ptab ${tab === 'attended' ? 'on' : ''}`} onClick={() => onTab('attended')}>Attended</button>
+        <button className={`ptab ${tab === 'hosted' ? 'on' : ''}`} onClick={() => onTab('hosted')}>Hosted</button>
+      </div>
+      <div className="plist">
+        {state === 'loading' && (
+          <>
+            <div className="skel slim" />
+            <div className="skel slim" />
+          </>
+        )}
+        {state !== 'loading' && list.length === 0 && (
+          <p className="empty">{tab === 'hosted' ? 'No plans hosted yet.' : 'No events attended yet — join one from the feed.'}</p>
+        )}
+        {list.map((f) => {
+          const isHosted = tab === 'hosted';
+          const badge = f.live ? 'Live now' : f.startsShort || 'Starting soon';
+          return (
+            <div key={f.id} className="prow" onClick={() => onOpen(f.id)}>
+              <div className="prow-main">
+                <b>{f.title}</b>
+                <span>{f.area} · {f.going} going</span>
+              </div>
+              <span className={`rolebadge ${f.live ? 'live' : ''}`}>{isHosted ? 'Hosted' : 'Went'} · {badge}</span>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

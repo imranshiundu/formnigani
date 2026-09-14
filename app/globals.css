@@ -450,3 +450,51 @@ body{font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;color:v
 .auth-tabs{justify-content:center;margin:4px 0 2px}
 .auth-tabs .pill{background:rgba(255,255,255,.16);border-color:transparent;color:#fff}
 .auth-tabs .pill.on{background:#fff;border-color:#fff;color:#141418;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+
+/* ---------- WORDMARK ---------- */
+.wordmark,.logo-lock b,.brandmini b,.pagehead h1{font-family:'Unbounded','Plus Jakarta Sans',sans-serif;letter-spacing:-.6px}
+.pagehead h1{font-size:24px;font-weight:700}
+
+/* ---------- BOOT/SCROLL ---------- */
+.newchip{display:flex;align-items:center;gap:8px;margin:12px auto 0;background:var(--brand);color:#fff;font-size:12.5px;font-weight:800;padding:10px 18px;border-radius:999px;box-shadow:0 10px 24px rgba(162,28,175,.4);animation:pop .32s ease}
+.newchip .vdot{width:7px;height:7px;border-radius:50%;background:#fff}
+
+/* ---------- PROFILE v3 ---------- */
+.prof-bio{font-size:13.5px;color:#4B4B55;line-height:1.6;text-align:center;margin-top:10px;max-width:290px}
+.stats{display:flex;justify-content:center;margin-top:20px}
+.ptabs{display:flex;background:#F3F3F6;border-radius:999px;padding:4px;margin:20px auto 0;max-width:280px}
+.ptab{flex:1;padding:10px 0;border-radius:999px;font-size:13.5px;font-weight:700;color:var(--gray);transition:.15s}
+.ptab.on{background:#fff;color:var(--ink);box-shadow:0 4px 12px rgba(24,10,40,.1)}
+.plist{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+.prow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid #F3F3F6;border-radius:18px;padding:14px 16px;box-shadow:0 6px 18px rgba(24,10,40,.06);cursor:pointer}
+.prow-main b{display:block;font-size:14.5px;font-weight:800;letter-spacing:-.2px}
+.prow-main span{display:block;font-size:12px;color:var(--gray);font-weight:600;margin-top:3px}
+.rolebadge{flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--gray);background:#F3F3F6;padding:6px 11px;border-radius:999px;white-space:nowrap}
+.rolebadge.live{color:#fff;background:linear-gradient(90deg,#EE2A7B,#A21CAF)}
+.skel.slim{height:64px;border-radius:18px;margin-bottom:0}
+
+/* ---------- STATUS COMPOSER ---------- */
+.composer-panel .status-preview{border-radius:20px;padding:22px 18px;display:flex;flex-direction:column;gap:12px;min-height:120px;justify-content:center}
+.status-preview p{color:#fff;font-size:17px;font-weight:800;line-height:1.45;word-break:break-word}
+.status-track{display:inline-flex;align-items:center;gap:6px;color:#fff;font-size:12.5px;font-weight:700;background:rgba(0,0,0,.28);padding:6px 12px;border-radius:999px;align-self:flex-start}
+.bgdots{display:flex;gap:9px;margin:14px 0 4px}
+.bgdot{width:26px;height:26px;border-radius:50%;border:2.5px solid transparent;transition:.15s}
+.bgdot.on{border-color:#fff;box-shadow:0 0 0 2px var(--brand)}
+.status-input{resize:none;margin-top:10px}
+.tracklist{display:flex;flex-direction:column;gap:7px;margin-top:6px;max-height:180px;overflow-y:auto;scrollbar-width:none}
+.tracklist::-webkit-scrollbar{display:none}
+.trackrow{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:700;color:#3F3F46;background:#F8F8FA;border:1.5px solid transparent;border-radius:14px;padding:11px 14px;transition:.15s;text-align:left}
+.trackrow.on{background:#F9EFF9;border-color:var(--brand);color:var(--brand)}
+.tplay{width:26px;height:26px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+
+/* ---------- STATUS STORY ---------- */
+.story-status{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:34px 26px 120px}
+.story-status p{color:#fff;font-size:23px;font-weight:800;line-height:1.5;word-break:break-word}
+.story-status .status-track{font-size:14px;padding:9px 15px;align-self:flex-start}
+.s-live.music{background:#101014}
+
+/* ---------- PASSWORD EYE ---------- */
+.pw-wrap{position:relative}
+.pw-wrap .input{padding-right:46px}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--gray)}
+.pw-eye:active{background:#F2F2F5}

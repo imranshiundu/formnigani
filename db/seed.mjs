@@ -13,6 +13,7 @@ if (!SB_URL || !SERVICE) {
 }
 const sb = createClient(SB_URL, SERVICE, { auth: { persistSession: false } });
 const seed = JSON.parse(readFileSync(new URL('../lib/seed.json', import.meta.url)));
+const BIOS = JSON.parse(readFileSync(new URL('./bios.json', import.meta.url)));
 
 const DEMO_IDS = {
   '@nia': '11111111-1111-4111-8111-111111111111',
@@ -39,7 +40,7 @@ async function main() {
   for (const [handle, h] of Object.entries(hosts)) {
     const { error } = await sb.from('profiles').upsert({
       id: DEMO_IDS[handle] || `00000000-0000-4000-8000-${Buffer.from(handle).toString('hex').padEnd(12, '0').slice(0, 12)}`,
-      handle, name: h.name, ava: h.ava ?? null,
+      handle, name: h.name, ava: h.ava ?? null, bio: BIOS[handle] || '',
     }, { onConflict: 'id' });
     if (error) fail.push(`profile ${handle}: ` + error.message);
   }
