@@ -55,6 +55,8 @@ async function main() {
       km: f.km, eta: f.eta, ends: f.ends, starts_short: f.startsShort,
       live: f.live, viewers: f.viewers || 0, going: f.going, hype: f.hype,
       tonight: f.tonight, free: f.free, capacity: f.capacity,
+      starts_in_h: f.startsInH ?? 99,
+      posted_at: new Date(Date.now() - (f.postedH || 0) * 3600000).toISOString(),
       tags: f.tags || [], img: null, seed: f.seed, avs: f.avs || [],
     }, { onConflict: 'id' });
     if (error) fail.push(`form ${f.id}: ` + error.message);

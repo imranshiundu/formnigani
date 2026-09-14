@@ -33,8 +33,9 @@ self.addEventListener('fetch', (e) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // API + live stream: always network, never cache.
+  // API + Supabase: always network, never cache (realtime data + egress).
   if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
+  if (url.hostname.includes('supabase.co')) return;
 
   // Navigations: network-first, fall back to cached shell offline.
   if (request.mode === 'navigate') {

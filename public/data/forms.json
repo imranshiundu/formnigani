@@ -31,7 +31,8 @@
       "tags": [
         "Music",
         "Chill"
-      ]
+      ],
+      "startsInH": 0
     },
     {
       "id": "f2",
@@ -64,7 +65,8 @@
       "tags": [
         "Rooftop",
         "Music"
-      ]
+      ],
+      "startsInH": 0
     },
     {
       "id": "f3",
@@ -96,7 +98,8 @@
       "postedH": 26,
       "tags": [
         "Football"
-      ]
+      ],
+      "startsInH": 20
     },
     {
       "id": "f4",
@@ -129,7 +132,8 @@
       "tags": [
         "Nyama",
         "Chill"
-      ]
+      ],
+      "startsInH": 48
     },
     {
       "id": "f5",
@@ -162,7 +166,8 @@
       "tags": [
         "Karaoke",
         "Music"
-      ]
+      ],
+      "startsInH": 4
     },
     {
       "id": "f6",
@@ -194,7 +199,8 @@
       "postedH": 30,
       "tags": [
         "Hiking"
-      ]
+      ],
+      "startsInH": 72
     }
   ],
   "notifs": {

@@ -435,3 +435,11 @@ body{font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;color:v
 .emailbox .ghost-link{margin-top:2px}
 .ordiv{display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;margin:8px 0 2px}
 .ordiv i{flex:1;height:1px;background:rgba(255,255,255,.3)}
+
+/* ---------- ALGORITHM + BACKEND-REQUIRED STATES ---------- */
+.top-pick{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#EE2A7B,#A21CAF);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.6px;padding:6px 14px;border-radius:999px;box-shadow:0 8px 20px rgba(238,42,123,.45);z-index:2}
+.skel{height:280px;border-radius:26px;background:linear-gradient(100deg,#F1F1F4 40%,#F9F9FB 50%,#F1F1F4 60%);background-size:200% 100%;animation:shimmer 1.3s infinite;margin-bottom:15px}
+@keyframes shimmer{to{background-position:-200% 0}}
+.feed-error{text-align:center;padding:56px 28px}
+.feed-error h3{font-size:19px;font-weight:800;letter-spacing:-.4px}
+.feed-error p{font-size:14px;color:var(--gray);margin:10px 0 22px}

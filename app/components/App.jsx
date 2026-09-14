@@ -10,22 +10,19 @@ import {
   clearState,
   fmt,
   hostPhoto,
-  hydrate,
   hydrateComment,
   loadCommentCache,
   loadState,
   persistState,
-  seedForms,
-  seedMeta,
 } from '@/lib/client-store';
-import { useLiveFeed } from '@/lib/live';
 import { FlameBurst, StoriesRail, StoryViewer } from './Stories';
 import CommentSheet from './Comments';
 import { ProfileSheet, RichText } from './Social';
-import { db, USE_SUPABASE } from '@/lib/db';
-import { supabaseDb } from '@/lib/db/supabase';
+import { db, isConfigured } from '@/lib/db';
+import { rowToForm } from '@/lib/db/supabase';
 import { toComment } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth';
+import { rankFeed } from '@/lib/rank';
 
 function deriveNotifs(forms) {
   const up = forms
@@ -105,7 +102,7 @@ function DescBlock({ text, onUser, onTag }) {
 }
 
 /* ---------- card with single-tap open + double-tap hype ---------- */
-function Card({ f, saved, hyped, me, cc, latest, onOpen, onSave, onHype, onHost, onShare, onComments, onUser, onTag }) {
+function Card({ f, saved, hyped, me, cc, latest, top, onOpen, onSave, onHype, onHost, onShare, onComments, onUser, onTag }) {
   const tapTimer = useRef(null);
   const [burst, setBurst] = useState(null);
   const [more, setMore] = useState(false);
@@ -137,6 +134,7 @@ function Card({ f, saved, hyped, me, cc, latest, onOpen, onSave, onHype, onHost,
       <div className="card-img">
         <Image src={f.img} alt="" fill sizes="360px" style={{ objectFit: 'cover' }} />
         <span className="chip-badge">{badge}</span>
+        {top && <span className="top-pick">Top pick</span>}
         <button
           className={`icon-save ${saved ? 'on' : ''}`}
           aria-label="Save"
@@ -245,14 +243,15 @@ export default function App() {
     try {
       const h = window.location.hash;
       let m = h.match(/^#\/form\/([\w-]+)/);
-      if (m && seedForms().some((f) => f.id === m[1])) return { name: 'form', param: m[1] };
+      if (m) return { name: 'form', param: m[1] };
       m = h.match(/^#\/@([\w]+)/);
       if (m) return { name: 'profile', param: '@' + m[1].toLowerCase() };
     } catch {}
     return { name: 'splash', param: null };
   });
-  const [forms, setForms] = useState(() => seedForms());
-  const [meta, setMeta] = useState(() => seedMeta());
+  const [forms, setForms] = useState([]);
+  const [meta, setMeta] = useState({ notifs: { up: [], past: [] }, taken: [], tags: [], recents: [] });
+  const [feedState, setFeedState] = useState(isConfigured() ? 'loading' : 'error');
   const [st, setSt] = useState(() => loadState());
   const [filter, setFilter] = useState('all');
   const [sfilter, setSfilter] = useState('all');
@@ -270,7 +269,7 @@ export default function App() {
   const [seen, setSeen] = useState([]);
   const [handle, setHandle] = useState('');
   const [handleMsg, setHandleMsg] = useState({ text: '3+ characters, no spaces.', kind: '' });
-  const [name, setName] = useState('Brian Kimani');
+  const [name, setName] = useState('');
   const [cTitle, setCTitle] = useState('');
   const [cLoc, setCLoc] = useState('');
   const [cPhoto, setCPhoto] = useState(null);
@@ -315,7 +314,7 @@ export default function App() {
   const toastTimer = useRef(null);
   const user = st.user;
   const auth = useAuth();
-  const SB = USE_SUPABASE && auth.active;
+  const SB = auth.active;
   const profId = auth.profile?.id || null;
 
   const showToast = useCallback((msg) => {
@@ -355,27 +354,37 @@ export default function App() {
     persistState(st);
   }, [st]);
 
-  /* ----- initial data (provider: supabase when configured, else memory API) ----- */
-  useEffect(() => {
-    if (SB) {
-      db.feed()
-        .then((j) => {
-          if (!j?.forms?.length) return;
-          setForms(j.forms);
-          setMeta({ notifs: j.meta.notifs || deriveNotifs(j.forms), taken: j.meta.taken, tags: j.meta.tags, recents: j.meta.recents });
-        })
-        .catch(() => {});
+  /* ----- backend feed (Supabase is the only source — no fallback) ----- */
+  const loadFeed = useCallback(() => {
+    if (!isConfigured()) {
+      setFeedState('error');
       return;
     }
-    fetch('/api/forms', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
+    setFeedState((s) => (s === 'ready' ? s : 'loading'));
+    db.feed()
       .then((j) => {
-        if (!j?.forms?.length) return;
-        setForms(j.forms.map(hydrate));
-        setMeta({ notifs: j.notifs, taken: j.taken, tags: j.tags, recents: j.recents });
+        if (!j?.forms?.length) {
+          setFeedState('empty');
+          return;
+        }
+        setForms(j.forms);
+        setMeta({ notifs: j.meta.notifs || deriveNotifs(j.forms), taken: j.meta.taken, tags: j.meta.tags, recents: j.meta.recents });
+        setFeedState('ready');
       })
-      .catch(() => {});
-  }, [SB]);
+      .catch(() => setFeedState('error'));
+  }, []);
+  useEffect(() => {
+    loadFeed();
+    const t = setInterval(loadFeed, 30000); // gentle consistency sweep; interactions merge in realtime
+    return () => clearInterval(t);
+  }, [loadFeed]);
+
+  /* ----- deep-link validation once the backend answers ----- */
+  useEffect(() => {
+    if (feedState !== 'ready' && feedState !== 'empty') return;
+    if (screen.name === 'form' && !forms.some((f) => f.id === screen.param)) go('home');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedState]);
 
   /* ----- supabase session -> local user mirror + server state ----- */
   useEffect(() => {
@@ -384,7 +393,7 @@ export default function App() {
     if (auth.sbUser && p && !String(p.handle).startsWith('@user_')) {
       setSt((s) => ({
         ...s,
-        user: { name: p.name, handle: p.handle, photo: supabaseDb.profilePhoto(p) },
+        user: { name: p.name, handle: p.handle, photo: db.profilePhoto(p) },
         ob: true,
       }));
       db.myState(p.id)
@@ -429,66 +438,24 @@ export default function App() {
     };
   }, [showToast]);
 
-  /* ----- realtime feed ----- */
-  const mergeCounts = useCallback((list) => {
-    if (!Array.isArray(list)) return;
-    const m = new Map(list.map((x) => [x.id, x]));
-    setForms((prev) => prev.map((f) => (m.has(f.id) ? { ...f, ...m.get(f.id), img: f.img } : f)));
-  }, []);
-
+  /* ----- realtime: targeted merges only (no refetch = minimal egress) ----- */
   const pushActivity = useCallback((text) => {
     setActivity((a) => [{ id: Date.now() + Math.random(), text, ts: Date.now() }, ...a].slice(0, 15));
     setUnread((u) => u + 1);
   }, []);
 
-  const liveStatus = useLiveFeed({
-    enabled: !SB,
-    onTick: mergeCounts,
-    onEvent: (msg) => {
-      if (msg.type === 'hype') {
-        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, hype: msg.hype } : f)));
-      } else if (msg.type === 'join') {
-        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, going: msg.going } : f)));
-      } else if (msg.type === 'create' && msg.form) {
-        setForms((prev) => (prev.some((f) => f.id === msg.form.id) ? prev : [hydrate(msg.form), ...prev]));
-        pushActivity(`New plan near you: ${msg.form.title}`);
-        showToast('New plan just dropped');
-      } else if (msg.type === 'sim-join') {
-        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, going: msg.going } : f)));
-        pushActivity(`${msg.name} just joined ${msg.title}`);
-        showToast(`${msg.name} just joined ${msg.title}`);
-      } else if (msg.type === 'comment' && msg.comment) {
-        mergeComment(msg.comment);
-        const nm = msg.comment.user?.name || 'Someone';
-        pushActivity(`${nm} commented on ${msg.title}`);
-        const f = forms.find((x) => x.id === msg.formId);
-        const me = String(user?.handle || '').toLowerCase();
-        if (user && f?.host && f.host.handle.toLowerCase() === me && String(msg.comment.user?.handle || '').toLowerCase() !== me) {
-          showToast(`${nm} commented on your Form`);
-        }
-      } else if (msg.type === 'sim-hype') {
-        setForms((prev) => prev.map((f) => (f.id === msg.id ? { ...f, hype: msg.hype } : f)));
-        pushActivity(`${msg.name} hyped ${msg.title}`);
-      }
-    },
-  });
+  const mergeFormRow = useCallback((row) => {
+    const next = rowToForm(row, null);
+    setForms((prev) => {
+      const cur = prev.find((f) => f.id === next.id);
+      if (!cur) return [next, ...prev];
+      return prev.map((f) => (f.id === next.id ? { ...next, img: next.img || f.img, commentCount: f.commentCount } : f));
+    });
+    return next;
+  }, []);
 
-  /* ----- supabase realtime (replaces SSE when configured) ----- */
+  const liveStatus = 'live';
   useEffect(() => {
-    if (!SB) return;
-    let t = null;
-    const refetch = () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        db.feed()
-          .then((j) => {
-            if (!j?.forms?.length) return;
-            setForms(j.forms);
-            setMeta((m) => ({ ...m, taken: j.meta.taken, tags: j.meta.tags, recents: j.meta.recents }));
-          })
-          .catch(() => {});
-      }, 900);
-    };
     const unsub = db.subscribe((ev) => {
       if (ev.kind === 'comment' && ev.row) {
         const c = toComment(ev.row);
@@ -501,37 +468,66 @@ export default function App() {
         if (u && f?.host && f.host.handle.toLowerCase() === me && String(c.user?.handle || '').toLowerCase() !== me) {
           showToast(`${c.user?.name || 'Someone'} commented on your Form`);
         }
-      } else {
-        refetch();
+      } else if (ev.kind === 'forms' && ev.row) {
+        const next = mergeFormRow(ev.row);
+        if (ev.type === 'INSERT') {
+          pushActivity(`New plan near you: ${next.title}`);
+          showToast('New plan just dropped');
+        }
+      } else if (ev.kind === 'hype' && ev.row) {
+        const d = ev.type === 'DELETE' ? -1 : 1;
+        setForms((prev) => prev.map((f) => (f.id === ev.row.form_id ? { ...f, hype: Math.max(0, f.hype + d) } : f)));
+      } else if (ev.kind === 'rsvp' && ev.row) {
+        if (ev.row.status === 'going') {
+          const d = ev.type === 'DELETE' ? -1 : 1;
+          setForms((prev) => prev.map((f) => (f.id === ev.row.form_id ? { ...f, going: Math.max(0, f.going + d) } : f)));
+        }
       }
     });
-    return () => {
-      clearTimeout(t);
-      unsub();
-    };
-  }, [SB]);
+    return unsub;
+  }, []);
 
   /* ----- auth ----- */
   const [ePhoto, setEPhoto] = useState(null);
+  const [eVibes, setEVibes] = useState([]);
   const fileRef = useRef(null);
   const openEdit = () => {
     if (!user) return openGate();
     setName(user.name);
     setEPhoto(user.photo);
+    setEVibes(auth.profile?.vibes || []);
     setSettings(false);
     setEdit(true);
   };
   const onPhotoFile = (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 1.5 * 1024 * 1024) {
-      showToast('That photo is too large — try one under 1.5MB');
+    if (!file.type.startsWith('image/')) {
+      showToast('Please pick an image file');
       return;
     }
-    const r = new FileReader();
-    r.onload = () => setEPhoto(String(r.result));
-    r.readAsDataURL(file);
-    e.target.value = '';
+    // Downscale to 256px JPEG — keeps avatars tiny for DB + egress.
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const s = Math.min(1, 256 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * s));
+        c.height = Math.max(1, Math.round(img.height * s));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        setEPhoto(c.toDataURL('image/jpeg', 0.82));
+      } catch {
+        showToast('Could not read that photo');
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      showToast('Could not read that photo');
+    };
+    img.src = url;
   };
   const copyLink = async (url) => {
     try {
@@ -552,31 +548,12 @@ export default function App() {
     showToast('Browsing as guest');
     if (['saved', 'profile'].includes(screen.name)) go(lastTab || 'home');
   };
-  const afterAuth = (u) => {
-    showToast(`Welcome, ${u.name.split(' ')[0]}`);
-    const fn = pending.current;
-    pending.current = null;
-    if (fn) fn();
-    else go('home');
-  };
   const googleGo = async () => {
-    if (!SB) return simulateGoogle(afterAuth);
     try {
       await auth.signInGoogle();
     } catch (e) {
       showToast('Google sign-in is not enabled yet — use email instead');
     }
-  };
-  const simulateGoogle = (done) => {
-    setTimeout(() => {
-      const u = { name: 'Brian Kimani', photo: AVA(12), handle: st.user?.handle || null };
-      setSt((s) => ({ ...s, user: u }));
-      setGate(false);
-      if (!u.handle) {
-        setName(u.name);
-        go('handle');
-      } else done(u);
-    }, 900);
   };
 
   /* ----- actions ----- */
@@ -588,7 +565,7 @@ export default function App() {
       saves: on ? [...s.saves, id] : s.saves.filter((x) => x !== id),
     }));
     showToast(on ? 'Saved' : 'Removed from Saved');
-    if (SB && profId) db.save(id, on, profId).catch(() => showToast('Sync failed — kept on this device'));
+    if (profId) db.save(id, on, profId).catch(() => showToast('Sync failed — kept on this device'));
   };
 
   const tryJoin = (id, el) => {
@@ -600,16 +577,10 @@ export default function App() {
       joins: leaving ? s.joins.filter((x) => x !== id) : [...s.joins, id],
     }));
     setForms((prev) => prev.map((x) => (x.id === id ? { ...x, going: Math.max(0, x.going + (leaving ? -1 : 1)) } : x)));
-    if (SB && profId) {
+    if (profId) {
       db.join(id, leaving ? 'leave' : 'join', profId)
         .then((going) => setForms((prev) => prev.map((x) => (x.id === id ? { ...x, going } : x))))
-        .catch(() => {});
-    } else {
-      fetch('/api/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, action: leaving ? 'leave' : 'join' }),
-      }).catch(() => {});
+        .catch(() => showToast('Sync failed — kept on this device'));
     }
     if (!leaving) {
       showToast("You're in! See you there");
@@ -626,16 +597,10 @@ export default function App() {
       hypes: remove ? s.hypes.filter((x) => x !== id) : [...s.hypes, id],
     }));
     setForms((prev) => prev.map((x) => (x.id === id ? { ...x, hype: Math.max(0, x.hype + (remove ? -1 : 1)) } : x)));
-    if (SB && profId) {
+    if (profId) {
       db.hype(id, remove ? 'remove' : 'add', profId)
         .then((hype) => setForms((prev) => prev.map((x) => (x.id === id ? { ...x, hype } : x))))
-        .catch(() => {});
-    } else {
-      fetch('/api/hype', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, action: remove ? 'remove' : 'add' }),
-      }).catch(() => {});
+        .catch(() => showToast('Sync failed — kept on this device'));
     }
     if (!remove) {
       showToast('Hyped! The host sees the love');
@@ -678,14 +643,7 @@ export default function App() {
       const dedup = [...new Map(merged.map((c) => [c.id, c])).values()].sort((a, b) => a.ts - b.ts);
       setComments((prev) => ({ ...prev, [formId]: dedup }));
     };
-    if (SB) {
-      db.comments(formId).then(merge).catch(() => merge([]));
-      return;
-    }
-    fetch(`/api/comments?formId=${formId}`, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => merge(j?.comments))
-      .catch(() => {});
+    db.comments(formId).then(merge).catch(() => merge([]));
   };
   const postComment = async (body, parentId) => {
     if (!user) {
@@ -695,36 +653,20 @@ export default function App() {
       });
       return;
     }
-    if (SB && profId) {
-      try {
-        const c = await db.postComment({
-          formId: sheet,
-          body,
-          parentId,
-          profile: { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo },
-        });
-        mergeComment(c);
-      } catch (e) {
-        showToast(e.message || 'Could not post — try again');
-      }
+    if (!profId) {
+      showToast('Syncing your profile — try again in a moment');
       return;
     }
     try {
-      const r = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          formId: sheet,
-          body,
-          parentId,
-          user: { name: user.name, handle: user.handle, photo: user.photo.startsWith('data:') ? null : user.photo },
-        }),
+      const c = await db.postComment({
+        formId: sheet,
+        body,
+        parentId,
+        profile: { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo },
       });
-      const j = await r.json();
-      if (j.comment) mergeComment(j.comment);
-      else showToast(j.error || 'Could not post — try again');
-    } catch {
-      showToast('You are offline — comment not posted');
+      mergeComment(c);
+    } catch (e) {
+      showToast(e.message || 'Could not post — try again');
     }
   };
 
@@ -735,17 +677,18 @@ export default function App() {
 
   /* ----- derived ----- */
   const cur = useMemo(() => forms.find((f) => f.id === screen.param), [forms, screen.param]);
-  const feed = useMemo(
-    () =>
-      forms.filter(
-        (f) =>
-          filter === 'all' ||
-          (filter === 'tonight' && f.tonight) ||
-          (filter === 'free' && f.free) ||
-          (filter === 'nearby' && Number(f.km) <= 3)
-      ),
-    [forms, filter]
-  );
+  const vibes = auth.profile?.vibes || [];
+  const feed = useMemo(() => {
+    const list = forms.filter(
+      (f) =>
+        filter === 'all' ||
+        (filter === 'tonight' && f.tonight) ||
+        (filter === 'free' && f.free) ||
+        (filter === 'nearby' && Number(f.km) <= 3)
+    );
+    return rankFeed(list, vibes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forms, filter, auth.profile?.vibes]);
   const savedList = useMemo(
     () =>
       forms
@@ -854,37 +797,19 @@ export default function App() {
     const tags = cTags.join(', ');
     const img = cPhoto ? IMGP(cPhoto, 800, 600) : IMGP('fng-default' + (Date.now() % 7), 800, 600);
     const desc = tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.';
-    if (SB && profId) {
-      db.createForm(
-        { title, area: cLoc.trim() || 'Near you', desc, img },
-        { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo }
-      )
-        .then((f) => {
-          setForms((prev) => [f, ...prev]);
-          setSt((s) => ({ ...s, joins: [...s.joins, f.id] }));
-        })
-        .catch((e) => showToast(e.message || 'Could not publish — try again'));
-    } else {
-      fetch('/api/forms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          area: cLoc.trim() || 'Near you',
-          host: { name: user.name, handle: user.handle, photo: user.photo.startsWith('data:') ? null : user.photo },
-          desc,
-          img,
-        }),
-      })
-        .then((r) => r.json())
-        .then((j) => {
-          if (j.form) {
-            setForms((prev) => [hydrate(j.form), ...prev]);
-            setSt((s) => ({ ...s, joins: [...s.joins, j.form.id] }));
-          }
-        })
-        .catch(() => {});
+    if (!profId) {
+      showToast('Syncing your profile — try again in a moment');
+      return;
     }
+    db.createForm(
+      { title, area: cLoc.trim() || 'Near you', desc, img },
+      { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo }
+    )
+      .then((f) => {
+        setForms((prev) => [f, ...prev]);
+        setSt((s) => ({ ...s, joins: [...s.joins, f.id] }));
+      })
+      .catch((e) => showToast(e.message || 'Could not publish — try again'));
     setCTitle('');
     setCLoc('');
     setCPhoto(null);
@@ -905,7 +830,10 @@ export default function App() {
   const submitHandle = async () => {
     const bare = handle.replace(/^@/, '');
     if (bare.length < 3) return;
-    if (SB && auth.sbUser) {
+    if (!auth.sbUser) {
+      showToast('Log in first, then pick your username');
+      return;
+    }
       try {
         const taken = await db.profileByHandle('@' + bare);
         if (taken && taken.id !== auth.sbUser.id) {
@@ -922,12 +850,6 @@ export default function App() {
       } catch (e) {
         showToast(e.message || 'Could not save — try again');
       }
-      return;
-    }
-    if (!user) return;
-    const u = { ...user, name: name.trim() || user.name, handle: '@' + bare };
-    setSt((s) => ({ ...s, user: u, ob: true }));
-    afterAuth(u);
   };
 
   const installApp = async () => {
@@ -1041,7 +963,7 @@ export default function App() {
               <p className="sub">Pick a handle — that&apos;s how people find you.</p>
               <div className="hcard">
                 <label>Your name</label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="off" />
                 <label>Your handle</label>
                 <input className="input" value={handle} onChange={(e) => onHandleInput(e.target.value)} placeholder="@nightowl" autoComplete="off" spellCheck="false" />
                 <div className={`hmsg ${handleMsg.kind}`}>{handleMsg.text}</div>
@@ -1072,9 +994,17 @@ export default function App() {
                 ))}
               </div>
               <div className="cards">
-                {feed.length ? feed.map((f) => (
-                  <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
-                )) : <p className="empty">No plans match this filter — try &quot;All&quot;.</p>}
+                {feed.length ? feed.map((f, i) => (
+                  <Card key={f.id} f={f} top={i === 0} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
+                )) : feedState === 'loading' ? (
+                  <div className="cards"><div className="skel" /><div className="skel" /><div className="skel" /></div>
+                ) : feedState === 'error' ? (
+                  <div className="feed-error">
+                    <h3>Couldn&apos;t reach the backend</h3>
+                    <p>Check your connection and try again.</p>
+                    <button className="btn-black" onClick={loadFeed}>Retry</button>
+                  </div>
+                ) : <p className="empty">No plans match this filter — try &quot;All&quot;.</p>}
               </div>
             </div>
           </section>
@@ -1484,7 +1414,7 @@ export default function App() {
                 <div>
                   <button className="edit" onClick={() => fileRef.current?.click()}>Change photo</button>
                   <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPhotoFile} />
-                  <span className="ava-hint">JPG or PNG under 1.5MB. Updates everywhere instantly.</span>
+                  <span className="ava-hint">Auto-resized to save data. Updates everywhere instantly.</span>
                 </div>
               </div>
               <div className="ava-presets">
@@ -1492,8 +1422,14 @@ export default function App() {
                   <img key={n} src={AVA(n)} alt="" className={ePhoto === AVA(n) ? 'on' : ''} onClick={() => setEPhoto(AVA(n))} />
                 ))}
               </div>
+              <label className="flabel">Your vibes</label>
+              <div className="tags">
+                {(meta.tags || []).map((t) => (
+                  <button key={t} className={`tag ${eVibes.includes(t) ? 'on' : ''}`} onClick={() => setEVibes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))}>{t}</button>
+                ))}
+              </div>
               <label className="flabel">Name</label>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
               <label className="flabel">Handle</label>
               <input className="input" value={user.handle || ''} onChange={(e) => {
                 const v = e.target.value.trim();
@@ -1512,7 +1448,7 @@ export default function App() {
                       showToast('That handle is taken');
                       return;
                     }
-                    await auth.saveProfile({ name: name.trim() || undefined, handle: h || undefined, avatar_url: ePhoto || user?.photo });
+                    await auth.saveProfile({ name: name.trim() || undefined, handle: h || undefined, avatar_url: ePhoto || user?.photo, vibes: eVibes });
                     setEdit(false);
                     showToast('Profile saved');
                   } catch (e) {
