@@ -1,19 +1,23 @@
 {
-  "name": "FormNiGani",
+  "id": "/",
+  "name": "FormNiGani — What's the plan?",
   "short_name": "FormNiGani",
-  "description": "Kuna Form karibu na wewe — discover real plans near you.",
-  "start_url": "./index.html#/splash",
-  "scope": "./",
+  "description": "Discover real plans happening near you. Live updates, hype, and easygoing hosting.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#A21CAF",
   "theme_color": "#A21CAF",
+  "categories": ["social", "entertainment", "events"],
   "icons": [
-    {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%23A21CAF'/%3E%3Cpath d='M256 56c112 0 202 78 202 175s-90 175-202 175c-28 0-55-5-79-14l-88 28 33-82c-42-31-68-74-68-107 0-97 90-175 202-175z' fill='%23fff'/%3E%3Ctext x='256' y='298' font-family='Arial' font-size='150' font-weight='800' fill='%23A21CAF' text-anchor='middle'%3E?%3C/text%3E%3C/svg%3E",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Find a plan", "url": "/#/home", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Nearby map", "url": "/#/map", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "New plan", "url": "/#/create", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

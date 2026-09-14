@@ -267,3 +267,35 @@ body{font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;color:v
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- LIVE + HYPE (v0.2) ---------- */
+.viewers-pill{position:absolute;left:12px;bottom:12px;display:inline-flex;align-items:center;gap:6px;background:rgba(18,16,24,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:11.5px;font-weight:700;padding:6px 11px;border-radius:999px}
+.viewers-pill .vdot{width:7px;height:7px;border-radius:50%;background:#FF3B5C;box-shadow:0 0 0 0 rgba(255,59,92,.7);animation:blink 1.4s infinite}
+@keyframes blink{0%{box-shadow:0 0 0 0 rgba(255,59,92,.7)}70%{box-shadow:0 0 0 7px rgba(255,59,92,0)}100%{box-shadow:0 0 0 0 rgba(255,59,92,0)}}
+.img-chips.has-live{left:auto;right:12px}
+.card-foot{display:flex;align-items:center;gap:8px;margin-top:10px}
+.hype-chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#3F3F46;background:#F6F1F7;border:1px solid #F0E2F1;padding:7px 13px;border-radius:999px;transition:.15s}
+.hype-chip svg{color:var(--brand)}
+.hype-chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.hype-chip.on svg{color:#fff;fill:currentColor}
+.hype-chip.pop{animation:pop .32s ease}
+@keyframes pop{40%{transform:scale(1.18)}}
+.card-foot .going-note{margin-left:auto;font-size:12.5px;color:var(--gray);font-weight:600}
+.livebar{display:flex;align-items:center;gap:10px;margin:14px 0 4px}
+.live-eye{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:var(--gray);background:#F5F5F8;padding:8px 14px;border-radius:999px}
+.live-eye svg{color:#FF3B5C;margin-right:6px}
+.live-eye b{font-weight:800;color:var(--ink)}
+.livebar .hype-btn{margin-left:auto}
+.hype-btn{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:800;color:var(--brand);background:#F9EFF9;border:1.5px solid #F0D9F1;padding:9px 16px;border-radius:999px;transition:.15s}
+.hype-btn svg{transition:.15s}
+.hype-btn.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.hype-btn.on svg{fill:currentColor}
+.hype-btn.pop{animation:pop .32s ease}
+.float-plus{position:fixed;z-index:80;font-weight:800;font-size:15px;color:var(--brand);pointer-events:none;animation:floatUp .8s ease-out forwards}
+@keyframes floatUp{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-46px) scale(1.25)}}
+.confetti{position:fixed;z-index:80;width:8px;height:12px;border-radius:2px;pointer-events:none;animation:confFall 1.1s ease-in forwards}
+@keyframes confFall{from{opacity:1;transform:translateY(-10px) rotate(0)}to{opacity:0;transform:translateY(120px) rotate(540deg)}}
+.card:active{transform:scale(.985)}
+.pill-mini{font-size:10.5px;font-weight:800;background:#F9EFF9;color:var(--brand);border:1px solid #F0D9F1;padding:4px 10px;border-radius:999px}
+.offline-bar{position:absolute;top:calc(54px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:50;background:#15151A;color:#fff;font-size:12px;font-weight:700;padding:8px 16px;border-radius:999px;display:none;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.offline-bar.on{display:block}

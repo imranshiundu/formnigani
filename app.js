@@ -8,31 +8,33 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const IMGP = (seed, w, h) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
 const AVA = (n) => `https://i.pravatar.cc/64?img=${n}`;
+const HYPE_SVG =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z"/><path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".45"/></svg>';
 
 /* ---------- seed data (FALLBACK) // [BACKEND] replace with API fetch ---------- */
 const FALLBACK = {
   forms: [
-    { id: 'f1', title: 'Bonfire + acoustic night', area: 'Karen', seed: 'fng-bonfire', live: true, km: 1.2, eta: '20 min', ends: 'Ends in 2h', going: 32, tonight: true, free: true, avs: [5, 9, 15, 32], desc: 'Kuna speaker, kuna views, na whoever shows up. No dress code, no plan — just pull up. Kuja na snacks zako, sisi tunaanza moto.' },
-    { id: 'f2', title: 'Rooftop sunset hang', area: 'Westlands', seed: 'fng-rooftop', live: true, km: 0.4, eta: '10 min', ends: 'Ends in 1h 40m', going: 12, tonight: true, free: true, avs: [8, 25, 44, 12], desc: 'Sunset, muziki poa, drinks baridi. Tuletane 6pm — mko wote welcome. Entrance ni free, tu bring good vibes.' },
-    { id: 'f3', title: '5-a-side pickup — Go Down', area: 'Industrial Area', seed: 'fng-football', live: false, startsShort: 'Kesho 4pm', km: 6.2, eta: '25 min', ends: 'Kesho 4pm', going: 14, tonight: false, free: true, avs: [3, 22, 52, 16], desc: 'Pitch imereserved. Leta boots na water — teams tunaipanga huko. Mpira iko.' },
-    { id: 'f4', title: 'Nyama choma Sunday', area: 'Kilimani', seed: 'fng-nyama', live: false, startsShort: 'Sunday 1pm', km: 2.8, eta: '15 min', ends: 'Sunday 1pm', going: 21, tonight: false, free: true, avs: [11, 30, 45, 20], desc: 'Choma, muziki, na banter kubwa. Kila mtu na crew yake, grill iko side yetu. Karibuni wote.' },
-    { id: 'f5', title: 'Karaoke night — Kile', area: 'Kileleshwa', seed: 'fng-karaoke', live: false, startsShort: 'Leo 9pm', km: 2.4, eta: '12 min', ends: 'Leo 9pm', going: 18, tonight: true, free: true, avs: [7, 18, 28, 36], desc: 'Mic iko wazi, crowd iko warm. Kuja uimbe au uchekwe — vyote ni content.' },
-    { id: 'f6', title: 'Sunrise hike — Ngong Hills', area: 'Ngong', seed: 'fng-hike', live: false, startsShort: 'Sat 5:30am', km: 22, eta: '40 min', ends: 'Sat 5:30am', going: 26, tonight: false, free: false, avs: [2, 14, 40, 23], desc: 'Tunatoka CBD 5am sharp. Leta water, jacket na stamina — views juu ni za kuambiwa tu. KES 500 inalipa transport.' },
+    { id: 'f1', title: 'Bonfire + acoustic night', area: 'Karen', seed: 'fng-bonfire', live: true, viewers: 128, hype: 214, km: 1.2, eta: '20 min', ends: 'Ends in 2h', going: 32, tonight: true, free: true, avs: [5, 9, 15, 32], desc: 'Speakers, city views, and whoever shows up. No dress code, no fixed plan — just come through. Bring your own snacks, we will handle the fire.' },
+    { id: 'f2', title: 'Rooftop sunset hang', area: 'Westlands', seed: 'fng-rooftop', live: true, viewers: 86, hype: 167, km: 0.4, eta: '10 min', ends: 'Ends in 1h 40m', going: 12, tonight: true, free: true, avs: [8, 25, 44, 12], desc: 'Sunset, good music, cold drinks. We are meeting at 6pm — everyone is welcome. Entry is free, just bring good vibes.' },
+    { id: 'f3', title: '5-a-side pickup — Go Down', area: 'Industrial Area', seed: 'fng-football', live: false, hype: 89, startsShort: 'Tomorrow 4pm', km: 6.2, eta: '25 min', ends: 'Tomorrow 4pm', going: 14, tonight: false, free: true, avs: [3, 22, 52, 16], desc: 'The pitch is booked. Bring boots and water — we will sort teams on site. Ball provided.' },
+    { id: 'f4', title: 'Nyama choma Sunday', area: 'Kilimani', seed: 'fng-nyama', live: false, hype: 143, startsShort: 'Sunday 1pm', km: 2.8, eta: '15 min', ends: 'Sunday 1pm', going: 21, tonight: false, free: true, avs: [11, 30, 45, 20], desc: 'Grilled meat, music, and big banter. Everyone brings their crew, the grill is on us. All are welcome.' },
+    { id: 'f5', title: 'Karaoke night — Kile', area: 'Kileleshwa', seed: 'fng-karaoke', live: false, hype: 112, startsShort: 'Today 9pm', km: 2.4, eta: '12 min', ends: 'Today 9pm', going: 18, tonight: true, free: true, avs: [7, 18, 28, 36], desc: 'The mic is open and the crowd is warm. Come sing or come laugh — either way it is a great night.' },
+    { id: 'f6', title: 'Sunrise hike — Ngong Hills', area: 'Ngong', seed: 'fng-hike', live: false, hype: 198, startsShort: 'Sat 5:30am', km: 22, eta: '40 min', ends: 'Sat 5:30am', going: 26, tonight: false, free: false, avs: [2, 14, 40, 23], desc: 'We leave the CBD at 5am sharp. Bring water, a jacket, and stamina — the views at the top are worth it. KES 500 covers transport.' },
   ],
   notifs: {
     up: [
-      { t: 'Bonfire + acoustic night', seed: 'fng-bonfire', s: 'Inaanza 2h 10m', id: 'f1' },
-      { t: 'Sunday pickup run — Karura', seed: 'fng-run', s: 'Inaanza 1h 05m', id: 'f3' },
-      { t: 'Rooftop movie night — Kile', seed: 'fng-movie', s: 'Inaanza kesho', id: 'f2' },
-      { t: 'Karaoke night — Haveli', seed: 'fng-karaoke', s: 'Inaanza 2h 15m', id: 'f5' },
+      { t: 'Bonfire + acoustic night', seed: 'fng-bonfire', s: 'Starts in 2h 10m', id: 'f1' },
+      { t: 'Sunday pickup run — Karura', seed: 'fng-run', s: 'Starts in 1h 05m', id: 'f3' },
+      { t: 'Rooftop movie night — Kile', seed: 'fng-movie', s: 'Starts tomorrow', id: 'f2' },
+      { t: 'Karaoke night — Haveli', seed: 'fng-karaoke', s: 'Starts in 2h 15m', id: 'f5' },
     ],
     past: [
-      { t: 'Nyama choma Sunday', seed: 'fng-nyama', s: 'Iliisha jana', id: 'f4' },
-      { t: 'Sunrise hike — Ngong', seed: 'fng-hike', s: 'Iliisha Jumamosi', id: 'f6' },
-      { t: 'Bonfire + acoustic night', seed: 'fng-bonfire', s: 'Iliisha', id: 'f1' },
+      { t: 'Nyama choma Sunday', seed: 'fng-nyama', s: 'Ended yesterday', id: 'f4' },
+      { t: 'Sunrise hike — Ngong', seed: 'fng-hike', s: 'Ended Saturday', id: 'f6' },
+      { t: 'Bonfire + acoustic night', seed: 'fng-bonfire', s: 'Ended', id: 'f1' },
     ],
   },
-  taken: ['nairobi', 'admin', 'formnigani', 'sheng', 'queen', 'king', 'nani'],
+  taken: ['nairobi', 'admin', 'formnigani', 'sheng', 'queen', 'king', 'sunset'],
 };
 
 let FORMS = FALLBACK.forms.map(hydrate);
@@ -40,7 +42,7 @@ let NOTIFS = structuredClone(FALLBACK.notifs);
 let TAKEN = [...FALLBACK.taken];
 
 function hydrate(f) {
-  return { ...f, img: f.img || IMGP(f.seed || 'fng-default', 800, 600) };
+  return { hype: 0, viewers: 0, ...f, img: f.img || IMGP(f.seed || 'fng-default', 800, 600) };
 }
 function hydrateNotif(n) {
   return { ...n, img: n.img || IMGP(n.seed || 'fng-default', 300, 300) };
@@ -48,9 +50,10 @@ function hydrateNotif(n) {
 
 /* ---------- state // [BACKEND] sessions move to real auth ---------- */
 let state = Object.assign(
-  { user: null, saves: [], joins: [], ob: false },
+  { user: null, saves: [], joins: [], hypes: [], ob: false },
   JSON.parse(localStorage.getItem('fng_v1') || '{}')
 );
+if (!Array.isArray(state.hypes)) state.hypes = [];
 const save = () => localStorage.setItem('fng_v1', JSON.stringify(state));
 let pendingFn = null;
 let pendingPage = null;
@@ -59,9 +62,10 @@ let curSFilter = 'all';
 let nTab = 'up';
 let curForm = null;
 let timer = null;
+let liveTimer = null;
 let notifOn = true;
 let lastTab = 'home';
-let dataReady = false;
+let deferredPrompt = null;
 
 /* ---------- helpers ---------- */
 function toast(m) {
@@ -80,24 +84,60 @@ function goPage(p) {
 }
 const isSaved = (id) => state.saves.includes(id);
 const isJoined = (id) => state.joins.includes(id);
+const isHyped = (id) => state.hypes.includes(id);
 function formById(id) {
   return FORMS.find((f) => f.id === id);
 }
+const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n));
 
-function avsHTML(f, count) {
+function confetti(x, y, big = false) {
+  const colors = ['#A21CAF', '#D637C0', '#F07BE8', '#FFC83D', '#22C55E', '#38BDF8'];
+  const n = big ? 34 : 18;
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement('i');
+    c.className = 'confetti';
+    c.style.left = x + (Math.random() * 40 - 20) + 'px';
+    c.style.top = y + (Math.random() * 10 - 5) + 'px';
+    c.style.background = colors[i % colors.length];
+    c.style.transform = `rotate(${Math.random() * 360}deg)`;
+    c.style.animationDelay = Math.random() * 0.15 + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 1400);
+  }
+}
+function floatPlus(x, y, text = '+1') {
+  const s = document.createElement('b');
+  s.className = 'float-plus';
+  s.textContent = text;
+  s.style.left = x + 'px';
+  s.style.top = y + 'px';
+  document.body.appendChild(s);
+  setTimeout(() => s.remove(), 850);
+}
+
+function avsHTML(f, detail = false) {
   let s = (f.avs || []).slice(0, 4).map((n) => `<img src="${AVA(n)}" alt="">`).join('');
   if (isJoined(f.id) && state.user) s += `<img src="${state.user.photo}" alt="">`;
-  return s + `<span>${f.going} ${count ? 'wamefika already' : 'wako down'}</span>`;
+  return s + `<span>${f.going} ${detail ? 'already here' : 'going'}</span>`;
 }
-function cardHTML(f) {
-  const badge = f.live ? '<i class="dot"></i>LIVE' : `<i class="dot mute"></i>${f.startsShort || 'Inaanza soon'}`;
-  return `<article class="card" data-open="${f.id}">
+function cardHTML(f, i = 0) {
+  const badge = f.live ? '<i class="dot"></i>LIVE' : `<i class="dot mute"></i>${f.startsShort || 'Starting soon'}`;
+  const livePill = f.live
+    ? `<span class="viewers-pill"><i class="vdot"></i><span data-viewers="${f.id}">${fmt(f.viewers)}</span>&nbsp;watching</span>`
+    : '';
+  return `<article class="card" data-open="${f.id}" style="animation-delay:${Math.min(i * 60, 300)}ms">
     <div class="card-img"><img src="${f.img}" alt="" loading="lazy">
       <span class="chip-badge">${badge}</span>
       <button class="icon-save ${isSaved(f.id) ? 'on' : ''}" data-save="${f.id}" aria-label="Save"><svg width="17" height="17" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v17l-6-4-6 4z"/></svg></button>
-      <div class="img-chips"><span>${f.km} km</span><span>${f.eta}</span></div>
+      ${livePill}
+      <div class="img-chips ${f.live ? 'has-live' : ''}"><span>${f.km} km</span><span>${f.eta}</span></div>
     </div>
-    <div class="card-body"><h3>${f.title}</h3><div class="avs">${avsHTML(f)}</div></div>
+    <div class="card-body"><h3>${f.title}</h3><div class="avs">${avsHTML(f)}</div>
+      <div class="card-foot">
+        <button class="hype-chip ${isHyped(f.id) ? 'on' : ''}" data-hype="${f.id}" aria-label="Hype this plan">${HYPE_SVG}<span data-hypecount="${f.id}">${fmt(f.hype)}</span></button>
+        <span class="going-note">${f.live ? 'Happening now' : f.startsShort || 'Starting soon'}</span>
+      </div>
+    </div>
   </article>`;
 }
 
@@ -112,7 +152,7 @@ function renderFeed() {
   );
   $('#feed').innerHTML = list.length
     ? list.map(cardHTML).join('')
-    : '<p style="text-align:center;color:var(--gray2);font-size:13.5px;padding:40px 20px">Hakuna Form kwa filter hii — try "Yote".</p>';
+    : '<p style="text-align:center;color:var(--gray2);font-size:13.5px;padding:40px 20px">No plans match this filter — try "All".</p>';
 }
 function renderSaved() {
   const list = FORMS.filter((f) => isSaved(f.id)).filter(
@@ -120,7 +160,7 @@ function renderSaved() {
   );
   $('#savedList').innerHTML = list.length
     ? list.map(cardHTML).join('')
-    : '<p style="text-align:center;color:var(--gray2);font-size:13.5px;padding:40px 20px">Hakuna Form hapa bado — tap bookmark juu ya Form usave.</p>';
+    : '<p style="text-align:center;color:var(--gray2);font-size:13.5px;padding:40px 20px">Nothing saved yet — tap the bookmark on any plan to keep it here.</p>';
 }
 function renderProfile() {
   if (!state.user) return;
@@ -128,6 +168,7 @@ function renderProfile() {
   $('#pName').textContent = state.user.name;
   $('#pHdl').textContent = state.user.handle;
   $('#pJoined').textContent = 47 + state.joins.length;
+  $('#pHype').textContent = state.hypes.length;
   $('#moments').innerHTML = [...Array(9)]
     .map((_, i) => `<img src="${IMGP('fng-m' + i, 300, 300)}" alt="moment ${i + 1}" loading="lazy" data-moment="${i + 1}">`)
     .join('');
@@ -138,11 +179,14 @@ function renderDetail(id) {
   curForm = f;
   $('#dImg').src = f.img;
   $('#dTitle').textContent = f.title;
+  $('#dLivebar').style.display = f.live ? 'flex' : 'none';
+  $('#dViewers').textContent = fmt(f.viewers);
+  syncHypeBtn();
   $('#dAvs').innerHTML = avsHTML(f, true);
   $('#dKm').textContent = f.km + ' km away';
   $('#dEnds').textContent = f.ends;
   $('#dDesc').textContent = f.desc;
-  $('#dBadge').innerHTML = f.live ? '<i class="dot"></i>LIVE' : `<i class="dot mute"></i>${f.startsShort || 'Inaanza soon'}`;
+  $('#dBadge').innerHTML = f.live ? '<i class="dot"></i>LIVE' : `<i class="dot mute"></i>${f.startsShort || 'Starting soon'}`;
   $('#dBack').dataset.go = lastTab;
   syncDetailBtn();
 }
@@ -151,7 +195,13 @@ function syncDetailBtn() {
   const j = isJoined(curForm.id);
   const b = $('#dJoin');
   b.classList.toggle('joined', j);
-  b.textContent = j ? 'Uko ndani' : 'Niko!';
+  b.textContent = j ? "You're In" : "I'm In!";
+}
+function syncHypeBtn() {
+  if (!curForm) return;
+  const b = $('#dHype');
+  b.classList.toggle('on', isHyped(curForm.id));
+  $('#dHypeCount').textContent = fmt(curForm.hype);
 }
 function renderNotifs() {
   $('#nList').innerHTML = NOTIFS[nTab]
@@ -171,7 +221,36 @@ function renderSearch(q) {
     <img src="${f.img}" alt=""><div><b>${f.title}</b><span>${f.area} · ${f.km} km · ${f.live ? 'LIVE' : f.startsShort}</span></div></div>`
       )
       .join('') ||
-    '<p style="text-align:center;color:var(--gray2);font-size:13px;padding:24px">Hakuna kitu — try "nyama" au "rooftop".</p>';
+    '<p style="text-align:center;color:var(--gray2);font-size:13px;padding:24px">No matches — try "rooftop" or "karaoke".</p>';
+}
+
+/* ---------- live simulation // [BACKEND] replace with socket/polling ---------- */
+function tickLive() {
+  let changed = false;
+  FORMS.forEach((f) => {
+    if (!f.live) return;
+    f.viewers = Math.max(24, f.viewers + Math.round(Math.random() * 14 - 6));
+    if (Math.random() < 0.25) {
+      f.going += 1;
+      changed = true;
+    }
+  });
+  // Patch visible counters without full re-render (keeps scroll + feels live).
+  $$('[data-viewers]').forEach((el) => {
+    const f = formById(el.dataset.viewers);
+    if (f) el.textContent = fmt(f.viewers);
+  });
+  const f1 = formById('f1');
+  if (f1 && $('#mapLive')) $('#mapLive').textContent = `${f1.km} km • Live • ${fmt(f1.viewers)} watching`;
+  if (curForm && curForm.live && $('#scr-form').classList.contains('on')) {
+    $('#dViewers').textContent = fmt(curForm.viewers);
+    if (changed) $('#dAvs').innerHTML = avsHTML(curForm, true);
+  }
+  if (changed && (location.hash || '').includes('home')) renderFeed();
+}
+function startLive() {
+  clearInterval(liveTimer);
+  liveTimer = setInterval(tickLive, 3500);
 }
 
 /* ---------- auth gate ---------- */
@@ -187,7 +266,7 @@ function guestSkip() {
   pendingFn = null;
   pendingPage = null;
   closeGate();
-  toast('Browsing kama guest');
+  toast('Browsing as guest');
   const raw = (location.hash || '#/splash').slice(2).split('/')[0];
   if (['saved', 'profile'].includes(raw)) goPage(lastTab || 'home');
 }
@@ -196,7 +275,7 @@ function simulateGoogle(btn) {
   const label = btn.querySelector('span');
   if (!label._orig) label._orig = label.textContent;
   label.innerHTML =
-    '<svg class="spin" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 109 9"/></svg> Inaconnect...';
+    '<svg class="spin" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 109 9"/></svg> Connecting...';
   setTimeout(() => {
     label.textContent = label._orig;
     closeGate();
@@ -208,7 +287,7 @@ function simulateGoogle(btn) {
   }, 900);
 }
 function afterAuth() {
-  if (state.user && state.user.name) toast('Karibu, ' + state.user.name.split(' ')[0]);
+  if (state.user && state.user.name) toast('Welcome, ' + state.user.name.split(' ')[0]);
   if (pendingFn) {
     const f = pendingFn;
     pendingFn = null;
@@ -228,16 +307,16 @@ function trySave(id) {
   }
   if (isSaved(id)) {
     state.saves = state.saves.filter((x) => x !== id);
-    toast('Imetoka kwa saved');
+    toast('Removed from saved');
   } else {
     state.saves.push(id);
-    toast('Imesave');
+    toast('Saved to your list');
   }
   save();
   renderFeed();
   if ((location.hash || '').includes('saved')) renderSaved();
 }
-function tryJoin(id) {
+function tryJoin(id, el) {
   if (!state.user) {
     openGate(() => tryJoin(id));
     return;
@@ -247,15 +326,50 @@ function tryJoin(id) {
   if (isJoined(id)) {
     state.joins = state.joins.filter((x) => x !== id);
     f.going--;
-    toast('Umebail');
+    toast("You're out — maybe next time");
   } else {
     state.joins.push(id);
     f.going++;
-    toast('Niko! Tutaonana huko');
+    toast("You're in! See you there");
+    if (el) {
+      const r = el.getBoundingClientRect();
+      confetti(r.left + r.width / 2, r.top, true);
+    }
   }
   save();
   syncDetailBtn();
   renderFeed();
+}
+function tryHype(id, el) {
+  if (!state.user) {
+    openGate(() => tryHype(id));
+    return;
+  }
+  const f = formById(id);
+  if (!f) return;
+  if (isHyped(id)) {
+    state.hypes = state.hypes.filter((x) => x !== id);
+    f.hype = Math.max(0, f.hype - 1);
+  } else {
+    state.hypes.push(id);
+    f.hype += 1;
+    toast('Hyped! The host sees the love');
+    if (el) {
+      const r = el.getBoundingClientRect();
+      floatPlus(r.left + r.width / 2 - 10, r.top - 6);
+      if (f.hype % 10 === 0) confetti(r.left + r.width / 2, r.top, false);
+    }
+  }
+  save();
+  // Patch counters in place for instant feedback.
+  $$(`[data-hypecount="${id}"]`).forEach((n) => (n.textContent = fmt(f.hype)));
+  $$(`[data-hype="${id}"]`).forEach((b) => {
+    b.classList.toggle('on', isHyped(id));
+    b.classList.remove('pop');
+    void b.offsetWidth;
+    b.classList.add('pop');
+  });
+  if (curForm && curForm.id === id) syncHypeBtn();
 }
 function requirePage(p) {
   if (!state.user) {
@@ -265,6 +379,55 @@ function requirePage(p) {
   }
   goPage(p);
 }
+
+/* ---------- PWA install ---------- */
+function refreshInstallUI() {
+  const badge = $('#installBadge');
+  const label = $('#installLabel');
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (standalone) {
+    label.textContent = 'App installed';
+    if (badge) badge.hidden = true;
+  } else if (deferredPrompt) {
+    label.textContent = 'Install App';
+    if (badge) badge.hidden = false;
+  } else {
+    label.textContent = 'Install App';
+    if (badge) badge.hidden = true;
+  }
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  refreshInstallUI();
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  refreshInstallUI();
+  toast('Installed! See you on the home screen');
+});
+async function installApp() {
+  $('#setModal').classList.remove('on');
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice.catch(() => {});
+    deferredPrompt = null;
+    refreshInstallUI();
+  } else {
+    toast('Open the browser menu > Install / Add to Home Screen');
+  }
+}
+
+/* ---------- offline indicator ---------- */
+function refreshOnline() {
+  $('#offlineBar').classList.toggle('on', !navigator.onLine);
+}
+window.addEventListener('online', () => {
+  refreshOnline();
+  toast('Back online');
+});
+window.addEventListener('offline', refreshOnline);
 
 /* ---------- router ---------- */
 const SB_LIGHT = { splash: 1, auth: 1, form: 1 };
@@ -327,7 +490,7 @@ function render() {
   }
   if (page === 'create' && !state.user) {
     // Let guests see the composer, login is enforced on Post.
-    toast('Login ndio upost Form');
+    toast('Log in to share a plan');
   }
   if (page === 'splash') {
     if (state.ob) timer = setTimeout(() => go('home'), 800);
@@ -338,6 +501,12 @@ window.addEventListener('hashchange', render);
 
 /* ---------- global click delegation: every button does something ---------- */
 document.addEventListener('click', (e) => {
+  const hypeB = e.target.closest('[data-hype]');
+  if (hypeB) {
+    e.stopPropagation();
+    tryHype(hypeB.dataset.hype, hypeB);
+    return;
+  }
   const saveB = e.target.closest('[data-save]');
   if (saveB) {
     e.stopPropagation();
@@ -352,7 +521,7 @@ document.addEventListener('click', (e) => {
   }
   const moment = e.target.closest('[data-moment]');
   if (moment) {
-    toast('Moment ' + moment.dataset.moment + ' — gallery inakuja');
+    toast('Moment ' + moment.dataset.moment + ' — gallery coming soon');
     return;
   }
   const navA = e.target.closest('[data-nav]');
@@ -377,7 +546,7 @@ document.addEventListener('click', (e) => {
   }
   const loc = e.target.closest('.pagehead .loc, .pagehead h1');
   if (loc && (location.hash || '').includes('home')) {
-    toast('Westlands, Nairobi — change location inakuja');
+    toast('Westlands, Nairobi — more areas coming soon');
     return;
   }
   const filt = e.target.closest('[data-filter]');
@@ -428,20 +597,19 @@ document.addEventListener('click', (e) => {
   if (a === 'notifs') requirePage('notifs');
   if (a === 'settings') {
     $('#setWho').textContent = state.user ? `${state.user.name} · ${state.user.handle}` : 'Guest';
+    refreshInstallUI();
     $('#setModal').classList.add('on');
   }
   if (a === 'toggleNotif') {
     notifOn = !notifOn;
     $('#notifSwitch').classList.toggle('on', notifOn);
-    toast(notifOn ? 'Notifications ON' : 'Notifications OFF');
+    toast(notifOn ? 'Notifications on' : 'Notifications off');
   }
-  if (a === 'aths') {
-    toast('Browser menu > Add to Home Screen');
-    $('#setModal').classList.remove('on');
-  }
+  if (a === 'install') installApp();
+  if (a === 'aths') installApp(); // legacy alias
   if (a === 'logout') {
     localStorage.removeItem('fng_v1');
-    state = { user: null, saves: [], joins: [], ob: false };
+    state = { user: null, saves: [], joins: [], hypes: [], ob: false };
     pendingFn = null;
     pendingPage = null;
     closeAll();
@@ -458,7 +626,8 @@ document.addEventListener('click', (e) => {
     $('#editModal').classList.add('on');
   }
   if (a === 'bail') goPage(lastTab || 'home');
-  if (a === 'join' && curForm) tryJoin(curForm.id);
+  if (a === 'join' && curForm) tryJoin(curForm.id, act);
+  if (a === 'hype' && curForm) tryHype(curForm.id, act);
   if (a === 'closeGate') guestSkip();
 });
 function closeAll() {
@@ -497,20 +666,20 @@ hIn.addEventListener('input', () => {
   hIn.value = v ? '@' + v : '';
   const bare = v.replace(/^@/, '');
   if (bare.length < 3) {
-    hMsg.textContent = 'Herufi 3+, hakuna nafasi.';
+    hMsg.textContent = '3+ characters, no spaces.';
     hMsg.className = 'hmsg';
     hGo.disabled = true;
     hIn.classList.remove('err');
     return;
   }
   if (TAKEN.includes(bare)) {
-    hMsg.textContent = '@' + bare + ' imechukuliwa';
+    hMsg.textContent = '@' + bare + ' is taken';
     hMsg.className = 'hmsg bad';
     hIn.classList.add('err');
     hGo.disabled = true;
     return;
   }
-  hMsg.textContent = '@' + bare + ' imepatikana';
+  hMsg.textContent = '@' + bare + ' is available';
   hMsg.className = 'hmsg ok';
   hIn.classList.remove('err');
   hGo.disabled = false;
@@ -535,7 +704,7 @@ $('#cPhoto').addEventListener('click', () => {
   $('#cPhotoTxt').textContent = 'Change photo';
   $('#cPhotoTxt').style.cssText = 'background:rgba(0,0,0,.45);color:#fff;padding:6px 14px;border-radius:999px';
 });
-// "Sasa hivi" / "Later today" are mutually exclusive
+// "Right now" / "Later today" are mutually exclusive
 $$('.checkrow .check input').forEach((box) =>
   box.addEventListener('change', () => {
     if (box.checked) $$('.checkrow .check input').forEach((o) => { if (o !== box) o.checked = false; });
@@ -547,7 +716,7 @@ $('#cTitle').addEventListener('input', (e) => {
 function postForm() {
   const title = $('#cTitle').value.trim();
   if (title.length < 3) {
-    toast('Andika Form kwanza');
+    toast('Describe your plan first');
     return;
   }
   const tags = $$('#cTags .tag.on').map((t) => t.textContent.trim()).join(', ');
@@ -557,15 +726,19 @@ function postForm() {
     area: $('#cLoc').value.trim() || 'Nairobi CBD',
     img: photoSeed ? IMGP(photoSeed, 800, 600) : IMGP('fng-default' + (Date.now() % 7), 800, 600),
     live: false,
+    hype: 0,
+    viewers: 0,
     startsShort: 'Just now',
     km: (Math.random() * 3 + 0.3).toFixed(1),
     eta: '5 min',
-    ends: 'Ends soon',
+    ends: 'Ending soon',
     going: 1,
     tonight: true,
     free: true,
     avs: [],
-    desc: tags ? `Tags: ${tags}. Host: wewe. Form mpya — details zinafuata kwa chat.` : 'Host: wewe. Form mpya — details zinafuata kwa chat.',
+    desc: tags
+      ? `Tags: ${tags}. You are hosting this one — details in the chat.`
+      : 'You are hosting this one — details in the chat.',
   };
   FORMS.unshift(f);
   state.joins.push(f.id);
@@ -580,7 +753,8 @@ function postForm() {
   $('#cPhotoTxt').style.cssText = '';
   $$('#cTags .tag').forEach((t, i) => t.classList.toggle('on', i === 0));
   goPage('home');
-  toast('Form imetoka');
+  toast('Your plan is live!');
+  confetti(window.innerWidth / 2, window.innerHeight * 0.4, true);
 }
 $('#cGo').addEventListener('click', () => {
   if (!state.user) {
@@ -615,7 +789,7 @@ $('#eSave').addEventListener('click', () => {
   save();
   $('#editModal').classList.remove('on');
   renderProfile();
-  toast('Profile imesave');
+  toast('Profile saved');
 });
 
 /* ---------- data boot: data/forms.json with file:// fallback ---------- */
@@ -632,16 +806,22 @@ async function loadData() {
       };
     }
     if (Array.isArray(j.taken) && j.taken.length) TAKEN = j.taken;
-    dataReady = true;
   } catch {
     // file:// or offline — FALLBACK above keeps every page working
-    dataReady = false;
   }
+  // Re-apply persisted hype (counts reset on each JSON load otherwise).
+  state.hypes.forEach((id) => {
+    const f = formById(id);
+    if (f) f.hype += 1;
+  });
   render();
+  startLive();
 }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
 /* ---------- boot ---------- */
+refreshOnline();
+refreshInstallUI();
 loadData();
