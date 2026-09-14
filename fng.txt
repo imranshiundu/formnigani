@@ -1,0 +1,145 @@
+Before the plan, one correction you need to hear straight, because it changes an infrastructure decision:
+
+**Exhausting Mapbox's 50k free loads does NOT mean you earn revenue — it means you start paying Mapbox.** It's ~$5 per 1,000 loads after the free tier. 10k daily users opening the map twice a day = ~600k loads/month = roughly $2,700/month in cost. High load is a *good signal* (it proves engagement, which helps you raise money and sell venues), but the money still comes from venues, brands and organizers — never from map usage itself. So: yes, start with Mapbox, but (a) abstract the map layer into one component so you can swap providers in a day, and (b) know your escape hatch — MapLibre GL + OpenFreeMap gives a near-identical look at $0 unlimited. If Mapbox bills ever cross ~$200/month pre-revenue, you flip the switch. You get Mapbox-quality design now, zero vendor lock-in later.
+
+Now the full plan. Everything below is the build spec the implementing agent updates against.
+
+---
+
+# FORMNIGANI — ENGAGEMENT & UI BUILD SPEC v2
+
+## 0. Language policy (do this first — it touches every string)
+
+English-first. Kill almost all Sheng from UI chrome. Keep exactly four brand terms and never translate them: **Form** (the unit), **Hype** (the like), **"Form ni gani?"** (tagline), **"What's the plan?"** (home header).
+
+| Current | New |
+|---|---|
+| Yote | All |
+| Inaanza soon / Inaisha soon | Starting soon / Ending soon |
+| Zinakuja / Zilizopita | Upcoming / Past |
+| Tafuta eneo / Tafuta Form... | Search this area / Search Forms, spots, tags |
+| Niko! / Siko / Uko ndani | I'm in / Can't make it / You're in |
+| Imesave / Imetoka kwa saved / Umebail | Saved / Removed from Saved / Maybe next time |
+| Karibu FormNiGani | Welcome to FormNiGani |
+| Nani kama wewe? / Herufi 3+ | Pick your username / 3+ characters, no spaces |
+| Wanapost. Wewe Una-show. (onboarding) | They post it. You show up. |
+
+Tonality stays warm and spoken, just English: "Someone's speaker, a view, and whoever shows up. No dress code, no plan — just come through."
+
+## 1. Flow: signup → Discovery (confirmed)
+
+Splash → Onboarding (2 screens) → Google auth → username → **Vibe pick** (new, inside signup) → **Discovery, logged in.**
+
+**Vibe pick:** one screen, grid of chips — Football, Nyama & grill, Hiking, Rooftop, Music, Karaoke, Running, Chill, Board games, Bowling. Pick 3+ to continue; "Skip" link top-right. Feeds the first Discovery and later ranking. Never empty feed rule: if a new user's area has <5 live/recent Forms, backfill from city-wide and vibe-matched content.
+
+## 2. Discovery page — layout zones (top to bottom)
+
+1. **Header:** "Westlands, Nairobi." + green live-dot, H1 "What's the plan?", search icon, bell with unread badge (red dot + count)
+2. **Area rail** (horizontal circles, story-style): LIVE areas get an animated gradient ring; tap = filter feed to that area; tap active area again = clear filter. First circle is always "Near you" (radius filter)
+3. **Filter pills:** All / Tonight / Free / Nearby (existing, keep)
+4. **LIVE NOW rail** — horizontal scroll of compact live cards (image, LIVE chip, watcher count, title, one line). The most urgent content never requires scrolling down to find
+5. **Main feed** — vertical cards, ranked by formula below
+6. **"Needs people" rescue row** — appears after ~4 cards; horizontal cards for Forms with ≤3 spots left and starting within 24h, each with a one-tap "I'm in". This row is the hero-maker section; never remove it
+7. Feed ordering formula (v1, keep explainable):
+   `score = 3.0×live + 2.5×(starts in 2–6h) + 2.0×(squad member joined) + 1.8×(fill rate 60–90%) + 1.5×(posted <2h) + 1.2×heat + 1.0×vibeMatch + 0.8×proximity`
+   where `heat = hypes / max(going,1)`. Below the fold, recency decay applies. No black-box personalization in v1.
+
+## 3. Card anatomy (the most important component in the app)
+
+```
+┌─────────────────────────────┐
+│ [LIVE chip]        [bookmark]│  media, radius 19, ~196px
+│                              │  double-tap = Hype (flame burst)
+│ [130 watching]   [1.2 km][20 min]│  glass chips on media
+├─────────────────────────────┤
+│ Bonfire + acoustic night      │  17px/800
+│ (avatars) 45 going            │
+│ Description text, two lines   │  2-line clamp + "more" toggle
+│ clamped with… more            │
+│ (flame 223)       Happening now│  Hype pill left · status right
+│ View all 12 comments          │  tappable → comment sheet
+└─────────────────────────────┘
+```
+
+Spec details:
+- **Description + Read more:** every Form carries a description. Card shows 2-line clamp with "more"/"less" inline toggle; detail page shows full text (with "Read more" only if >4 lines)
+- **Hype pill:** flame icon + count; filled brand-purple when hyped; animates on tap. Double-tap on media also hypes with a flame burst at the tap point (Instagram gesture, everyone knows it)
+- **Status text right of Hype:** "Happening now" / "Starts 9:00 PM" / "Starts in 3h"
+- **Watching count:** unique viewers in last 5 minutes (live Forms only). Pure social proof, simulate client-side for now
+- **Squad chip (when applicable):** "3 friends in" replaces going-count color to exploit social proof hardest where it's true
+- **Capacity bar:** thin progress line under avatars when fill ≥60% ("7/8 in") — Zeigarnik pull
+- Tap card → detail. Tap comment row → comment sheet. Tap bookmark → save (auth-gated)
+
+## 4. Comments — yes, build them (Instagram style)
+
+Comments are the cheap chat. Host replies make Forms feel alive; they also give hosts a reason to open the app (notification: "imran commented on your Form").
+
+- **Where:** bottom sheet from card ("View all N comments") and from detail ("Comments (N)" row). Sheet = list + pinned input bar at bottom: `Add a comment...` + send arrow. Instagram muscle memory, zero learning
+- **Host badge:** host replies render with a purple "Host" pill before the name — status incentive for hosts to reply fast
+- **One level of replies** (reply-to-comment), that's enough for v1
+- **Latest comment preview** can surface on the card under the comment-count row (1 line, gray)
+- **Mentions & hashtags inside comments and descriptions** — see next section
+- Notification to host on every comment; notification to commenter when host replies
+
+## 5. @ and # system
+
+- `@username` anywhere (comments, board, description) → parsed, rendered in brand purple, tappable → opens **profile sheet** (modal: avatar, name, handle, stats Hypes/Hosted/Going, their upcoming Forms). Do NOT navigate away; modal keeps feed context
+- `#tag` → parsed, tappable → opens Search pre-filtered to that tag
+- Search overlay gains modes: typing `@` searches people, typing `#` or plain text searches tags + titles + areas. Vibe categories auto-generate canonical hashtags (#Rooftop #Football #Nyama) so tags are never a cold-start mess — suggest them as chips in the comment input and in Create
+- Form creator can add up to 3 tags in Create; these render as tappable chips on the detail sheet
+
+## 6. Hype system + commitment ladder
+
+Ladder (psychological spine): **Hype** (zero friction, double-tap or pill) → **Maybe** (notify me when it starts) → **I'm in** (unlocks exact location + WhatsApp group link + board). Each step is a smaller ask than jumping straight to commitment; "Maybe" captures the hesitant majority and gives hosts real audience numbers ("23 maybes, 8 in").
+
+- Hypes are public counts, one per user per Form, toggleable
+- **Most Hyped board:** weekly per-city leaderboard (top 5 Forms + top hosts), badged on profile. Hosts chase this — it is your content engine
+- Host push: "3 friends hyped your Form" — engineered re-engagement
+- Feed ranking consumes hype ratio (see formula) — likes now have a job
+
+## 7. Profile v2 (replaces the current photo-grid version)
+
+No photos grid yet. Structure top to bottom:
+
+1. Header: "Profile" + gear
+2. Avatar (from Google), name pill + inline Edit, @handle
+3. **Stats row — exactly: `Hypes` · `Hosted` · `Going`** (Hypes = received on Forms you hosted; drop "Hype given")
+4. **Weekend Streak card (Duolingo-style):** seven day-dots for the current week, flame on days with activity (a Form joined; hosting counts double), big number "4-weekend streak", subline "Best: 9", one **Streak Save** per month (freeze analog). Streak rule for MVP: a week (Thu–Sun) with ≥1 "I'm in" keeps the streak; show-up verification via host vouch arrives with backend
+5. **Activity list:** recent Forms as rows — thumbnail, title, role badge (Hosted / Went / Upcoming), date. This replaces the moments grid and stays truthful to a pre-photo product
+6. Settings sheet unchanged (Edit profile, Notifications toggle, Add to Home Screen, Log out)
+
+## 8. Duolingo mechanics — what we copy, in order
+
+- **Phase 1 (now):** Weekend Streak + Thursday 5pm ritual push ("Form ni gani? 4 Forms live near you") + capacity progress bars + confetti when a Form hits full capacity
+- **Phase 2:** Streak Save, Most Hyped leaderboard, host levels (Rookie → Regular → Legend from hosted + show-up rate)
+- **Phase 3:** Squad quests ("Get 3+ squad into one Form this weekend"), Sunday recap story ("Your weekend: 3 Forms, 14 people"), season recaps
+- Anti-pattern to avoid: never reward Hype-giving with XP. Reward commitment (I'm in, showing up, hosting) — otherwise you teach users to farm likes
+
+## 9. Map (Night Radar) — what it does
+
+Mapbox GL now (with provider abstraction), single screen: dark-styled map, live Forms as pulsing pins, user dot with pulse, tap pin → mini card (image, title, watching, "I'm in"), radius filter 1–10 km, time filter Tonight/Weekend, clusters when zoomed out ("12 Forms here"), and a "Directions" button that deep-links to the Google Maps app (`https://maps.google.com/?q=lat,lng`) — navigation is Google's cost, not ours. Zooming out must feel like abundance: the night is happening everywhere. Searching this area → same search overlay. No geocoding backend in v1: host types a spot name and drops an approximate pin.
+
+## 10. Chat decision (locked)
+
+No in-app chat. Per-Form **Board** (structured pinned thread: who's in, what to bring, updates) + host-added **WhatsApp group link** revealed after "I'm in". Group naming convention "FormNiGani – {Form title}" makes every WhatsApp group a billboard. Revisit in-app chat post-retention-proof.
+
+## 11. Data model preview (so the backend agent designs once)
+
+`users(id, name, handle, avatar, vibes[], created_at)` · `forms(id, host_id, title, desc, area, lat, lng, starts_at, ends_at, capacity, is_free, price, tags[], status)` · `rsvps(form_id, user_id, status: going|maybe, showed_up)` · `hypes(form_id, user_id)` · `saves(form_id, user_id)` · `comments(id, form_id, user_id, parent_id, body, mentions[], tags[])` · `boards(form_id)` + `board_posts` · `notifications(user_id, type, payload, read)` · `streaks(user_id, week_key, met, saves_left)` · `areas(name, city, lat, lng)`. Feed ranking and watching-count are queries/views, not new tables.
+
+## 12. Build order + acceptance checklist for the implementing agent
+
+1. Language sweep to Section 0 strings (zero Sheng outside the 4 brand terms; zero emojis anywhere)
+2. Card rebuild to Section 3 (Read more, Hype pill + double-tap burst, watching chip, capacity bar, comment row)
+3. Comment sheet + input bar + host badge + mention/hashtag parsing + profile-sheet and search integrations
+4. Discovery zones: LIVE rail, rescue row, area rail filters, ranking formula, empty states per filter
+5. Vibe pick step → routes to Discovery after username
+6. Profile v2: Hypes/Hosted/Going, streak card with week dots + Streak Save, activity list; delete moments grid
+7. Detail page: description with Read more, tags row, Comments entry, Maybe button added next to I'm in (3-state ladder), location-locked until "I'm in"
+8. Map to Section 9 with provider-abstracted Mapbox
+9. State: hypes/maybes/saves/comments/streak persist to localStorage with the same `// [BACKEND]` swap markers as before
+10. Accept: double-tap hypes with animation; comment bar slides with keyboard; every notification fires from a real in-app event; feed never empty for a fresh user; all screens still match the original mock language (English, Plus Jakarta Sans, brand #A21CAF, same radii/spacing)
+
+---
+
+That's the whole system — psychology, screens, strings, schema, and order of operations. Hand this document to the agent as the contract; each numbered build item is independently testable. When you want, I can also execute it myself section by section against the existing `index.html`, starting with the card rebuild and comment sheet since everything else hangs off them.

@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: "FormNiGani — What's the plan?",
+  title: "FormNiGani — Form ni gani?",
   description: 'Discover real plans happening near you. Live updates, hype, and easy hosting.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {

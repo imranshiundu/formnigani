@@ -8,6 +8,7 @@ import {
   IMGP,
   clearState,
   fmt,
+  hostPhoto,
   hydrate,
   loadState,
   persistState,
@@ -54,6 +55,9 @@ const I = {
   eye: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
   ),
+  share: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4" /></svg>
+  ),
 };
 
 function ago(ts) {
@@ -65,7 +69,7 @@ function ago(ts) {
 }
 
 /* ---------- card with single-tap open + double-tap hype ---------- */
-function Card({ f, saved, hyped, onOpen, onSave, onHype }) {
+function Card({ f, saved, hyped, me, onOpen, onSave, onHype, onHost, onShare }) {
   const tapTimer = useRef(null);
   const [burst, setBurst] = useState(null);
 
@@ -116,10 +120,23 @@ function Card({ f, saved, hyped, onOpen, onSave, onHype }) {
       </div>
       <div className="card-body">
         <h3>{f.title}</h3>
+        {f.host && (
+          <div
+            className="hostline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onHost?.(f.host.handle);
+            }}
+          >
+            <img src={hostPhoto(f.host)} alt="" />
+            <span>{f.host.name} · {f.host.handle}</span>
+          </div>
+        )}
         <div className="avs">
           {(f.avs || []).slice(0, 4).map((n) => (
             <img key={n} src={AVA(n)} alt="" />
           ))}
+          {me && <img src={me} alt="you" />}
           <span>{f.going} going</span>
         </div>
         <div className="card-foot">
@@ -133,6 +150,16 @@ function Card({ f, saved, hyped, onOpen, onSave, onHype }) {
           >
             {I.flame}<span>{fmt(f.hype)}</span>
           </button>
+          <button
+            className="iconbtn mini"
+            aria-label="Share"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShare?.(f);
+            }}
+          >
+            {I.share}
+          </button>
           <span className="going-note">{f.live ? 'Happening now' : f.startsShort || 'Starting soon'}</span>
         </div>
       </div>
@@ -142,7 +169,16 @@ function Card({ f, saved, hyped, onOpen, onSave, onHype }) {
 
 /* ================= APP ================= */
 export default function App() {
-  const [screen, setScreen] = useState({ name: 'splash', param: null });
+  const [screen, setScreen] = useState(() => {
+    try {
+      const h = window.location.hash;
+      let m = h.match(/^#\/form\/([\w-]+)/);
+      if (m && seedForms().some((f) => f.id === m[1])) return { name: 'form', param: m[1] };
+      m = h.match(/^#\/@([\w]+)/);
+      if (m) return { name: 'profile', param: '@' + m[1].toLowerCase() };
+    } catch {}
+    return { name: 'splash', param: null };
+  });
   const [forms, setForms] = useState(() => seedForms());
   const [meta, setMeta] = useState(() => seedMeta());
   const [st, setSt] = useState(() => loadState());
@@ -183,6 +219,30 @@ export default function App() {
   }, []);
 
   const go = useCallback((name, param = null) => setScreen({ name, param }), []);
+
+  const doShare = useCallback(
+    async ({ title, text, path }) => {
+      const url = `${window.location.origin}/#${path}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text, url });
+        } catch {}
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copied to clipboard');
+      } catch {
+        showToast(url);
+      }
+    },
+    [showToast]
+  );
+  const sharePlan = useCallback((f) => doShare({ title: f.title, text: `${f.title} — only on FormNiGani`, path: `/form/${f.id}` }), [doShare]);
+  const shareProfile = useCallback(
+    (handle, name) => doShare({ title: `${name} on FormNiGani`, text: `Follow ${name} on FormNiGani`, path: `/@${String(handle).replace(/^@/, '')}` }),
+    [doShare]
+  );
 
   /* ----- persistence ----- */
   useEffect(() => {
@@ -267,6 +327,36 @@ export default function App() {
   });
 
   /* ----- auth ----- */
+  const [ePhoto, setEPhoto] = useState(null);
+  const fileRef = useRef(null);
+  const openEdit = () => {
+    if (!user) return openGate();
+    setName(user.name);
+    setEPhoto(user.photo);
+    setSettings(false);
+    setEdit(true);
+  };
+  const onPhotoFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1.5 * 1024 * 1024) {
+      showToast('That photo is too large — try one under 1.5MB');
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => setEPhoto(String(r.result));
+    r.readAsDataURL(file);
+    e.target.value = '';
+  };
+  const copyLink = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copied to clipboard');
+    } catch {
+      showToast(url);
+    }
+  };
+  const profileUrl = (handle) => `${window.location.origin}/#/@${String(handle || '').replace(/^@/, '')}`;
   const openGate = (fn) => {
     pending.current = fn || null;
     setGate(true);
@@ -393,7 +483,67 @@ export default function App() {
     if (tabbed) setLastTab(screen.name);
   }, [screen.name, tabbed]);
 
+  /* ----- deep-link hash sync (/#/form/:id and /#/@handle) ----- */
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const userRef = useRef(null);
+  userRef.current = st.user;
+  useEffect(() => {
+    try {
+      let h = '';
+      if (screen.name === 'form' && screen.param) h = `#/form/${screen.param}`;
+      else if (screen.name === 'profile' && screen.param) h = `#/@${screen.param.replace(/^@/, '')}`;
+      else if (['home', 'map', 'saved', 'profile', 'notifs'].includes(screen.name)) h = `#/${screen.name}`;
+      if (h && window.location.hash !== h) window.location.hash = h;
+    } catch {}
+  }, [screen]);
+  useEffect(() => {
+    const onHash = () => {
+      const s = screenRef.current;
+      const u = userRef.current;
+      const h = window.location.hash;
+      let m = h.match(/^#\/form\/([\w-]+)/);
+      if (m) {
+        if (!(s.name === 'form' && s.param === m[1])) setScreen({ name: 'form', param: m[1] });
+        return;
+      }
+      m = h.match(/^#\/@([\w]+)/);
+      if (m) {
+        const handle = '@' + m[1].toLowerCase();
+        if (!(s.name === 'profile' && s.param === handle)) setScreen({ name: 'profile', param: handle });
+        return;
+      }
+      m = h.match(/^#\/(home|map|saved|profile|notifs)$/);
+      if (m) {
+        const t = m[1];
+        if (s.name === t && !s.param) return;
+        if ((t === 'saved' || t === 'profile') && !u) {
+          setScreen({ name: 'home', param: null });
+          return;
+        }
+        setScreen({ name: t, param: null });
+      }
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   const f1 = forms.find((f) => f.id === 'f1');
+
+  /* ----- public profile (@handle links) ----- */
+  const viewingHandle = screen.name === 'profile' ? screen.param : null;
+  const isOwnProfile =
+    !viewingHandle || (user && viewingHandle.toLowerCase() === String(user.handle || '').toLowerCase());
+  const pubHost =
+    !isOwnProfile && viewingHandle
+      ? forms.map((f) => f.host).find((h) => h && h.handle.toLowerCase() === viewingHandle.toLowerCase()) || null
+      : null;
+  const pubForms =
+    !isOwnProfile && viewingHandle
+      ? forms.filter((f) => f.host && f.host.handle.toLowerCase() === viewingHandle.toLowerCase())
+      : [];
+  const pubHype = pubForms.reduce((a, f) => a + (f.hype || 0), 0);
+  const pubGoing = pubForms.reduce((a, f) => a + (f.going || 0), 0);
 
   /* ----- create ----- */
   const postForm = () => {
@@ -407,7 +557,8 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title,
-        area: cLoc.trim() || 'Nairobi CBD',
+        area: cLoc.trim() || 'Near you',
+        host: { name: user.name, handle: user.handle, photo: user.photo.startsWith('data:') ? null : user.photo },
         desc: tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.',
         img,
       }),
@@ -557,8 +708,7 @@ export default function App() {
             <div className="scr">
               <div className="pagehead">
                 <div>
-                  <div className="loc">Westlands, Nairobi. <LiveDot status={liveStatus} /></div>
-                  <h1>What&apos;s the plan?</h1>
+                  <h1>Form ni gani? <LiveDot status={liveStatus} /></h1>
                 </div>
                 <div className="acts">
                   <button className="iconbtn" aria-label="Search" onClick={() => { setSearchQ(''); setSearchOpen(true); }}>{I.search}</button>
@@ -575,7 +725,7 @@ export default function App() {
               </div>
               <div className="cards">
                 {feed.length ? feed.map((f) => (
-                  <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} />
+                  <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} />
                 )) : <p className="empty">No plans match this filter — try &quot;All&quot;.</p>}
               </div>
             </div>
@@ -597,7 +747,7 @@ export default function App() {
               </div>
               <div className="cards">
                 {savedList.length ? savedList.map((f) => (
-                  <Card key={f.id} f={f} saved hyped={st.hypes.includes(f.id)} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} />
+                  <Card key={f.id} f={f} saved hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} />
                 )) : <p className="empty">Nothing saved yet — tap the bookmark on any plan to keep it here.</p>}
               </div>
             </div>
@@ -607,39 +757,87 @@ export default function App() {
           <section className={`screen s-profile ${on('profile') ? 'on' : ''}`}>
             <div className="scr">
               <div className="pagehead">
-                <h1>Profile</h1>
+                <h1>{isOwnProfile ? 'Profile' : viewingHandle}</h1>
                 <div className="acts">
-                  <button className="iconbtn" aria-label="Settings" onClick={() => {
-                    setSettings(true);
-                  }}>{I.gear}</button>
+                  {isOwnProfile && user && (
+                    <button className="iconbtn" aria-label="Settings" onClick={() => setSettings(true)}>{I.gear}</button>
+                  )}
+                  {!isOwnProfile && pubHost && (
+                    <button className="iconbtn" aria-label="Share profile" onClick={() => shareProfile(pubHost.handle, pubHost.name)}>{I.share}</button>
+                  )}
                 </div>
               </div>
-              <div className="prof-top">
-                <img className="ava" src={user?.photo || 'https://i.pravatar.cc/160?img=12'} alt="" />
-                <div className="nrow">
-                  <h3>{user?.name || 'Guest'}</h3>
-                  <button className="edit" onClick={() => {
-                    if (!user) return openGate();
-                    setName(user.name);
-                    setSettings(false);
-                    setEdit(true);
-                  }}>Edit</button>
+              {isOwnProfile && !user && (
+                <div className="guest-prompt">
+                  <h3>This is your space</h3>
+                  <p>Log in to see your profile, your plans, and your hype.</p>
+                  <button className="btn-black" onClick={() => openGate(() => go('profile'))}>Log in</button>
                 </div>
-                <div className="hdl">{user?.handle || '@guest'}</div>
-              </div>
-              <div className="stats">
-                <div className="stat"><b>12</b><span>Hosted</span></div>
-                <div className="stat"><b>{47 + st.joins.length}</b><span>Going</span></div>
-                <div className="stat"><b>{st.hypes.length}</b><span>Hype given</span></div>
-              </div>
-              <div className="moments">
-                <h4>Your moments</h4>
-                <div className="grid9">
-                  {[...Array(9)].map((_, i) => (
-                    <img key={i} src={IMGP('fng-m' + i, 300, 300)} alt={`moment ${i + 1}`} loading="lazy" onClick={() => showToast(`Moment ${i + 1} — gallery coming soon`)} />
-                  ))}
+              )}
+              {isOwnProfile && user && (
+                <>
+                  <div className="prof-top">
+                    <img className="ava" src={user.photo} alt="" />
+                    <div className="nrow">
+                      <h3>{user.name}</h3>
+                      <button className="edit" onClick={openEdit}>Edit</button>
+                    </div>
+                    <div className="hdl">{user.handle}</div>
+                  </div>
+                  <div className="link-row">
+                    <span>{typeof window !== 'undefined' ? window.location.host : 'formnigani.com'}/@{String(user.handle || '').replace(/^@/, '')}</span>
+                    <button onClick={() => copyLink(profileUrl(user.handle))}>Copy</button>
+                  </div>
+                  <div className="pub-cta">
+                    <button className="hype-btn" onClick={() => shareProfile(user.handle, user.name)}>{I.share} Share profile</button>
+                  </div>
+                  <div className="stats">
+                    <div className="stat"><b>12</b><span>Hosted</span></div>
+                    <div className="stat"><b>{47 + st.joins.length}</b><span>Going</span></div>
+                    <div className="stat"><b>{st.hypes.length}</b><span>Hype given</span></div>
+                  </div>
+                  <div className="moments">
+                    <h4>Your moments</h4>
+                    <div className="grid9">
+                      {[...Array(9)].map((_, i) => (
+                        <img key={i} src={IMGP('fng-m' + i, 300, 300)} alt={`moment ${i + 1}`} loading="lazy" onClick={() => showToast(`Moment ${i + 1} — gallery coming soon`)} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              {!isOwnProfile && !pubHost && (
+                <div className="guest-prompt">
+                  <h3>No one here yet</h3>
+                  <p>{viewingHandle} hasn&apos;t posted a plan. Explore what&apos;s live instead.</p>
+                  <button className="btn-black" onClick={() => go('home')}>Explore plans</button>
                 </div>
-              </div>
+              )}
+              {!isOwnProfile && pubHost && (
+                <>
+                  <div className="prof-top">
+                    <img className="ava" src={hostPhoto(pubHost)} alt="" />
+                    <div className="nrow"><h3>{pubHost.name}</h3></div>
+                    <div className="hdl">{pubHost.handle}</div>
+                  </div>
+                  <div className="pub-cta">
+                    <button className="hype-btn" onClick={() => shareProfile(pubHost.handle, pubHost.name)}>{I.share} Share profile</button>
+                  </div>
+                  <div className="stats">
+                    <div className="stat"><b>{pubForms.length}</b><span>Hosted</span></div>
+                    <div className="stat"><b>{fmt(pubHype)}</b><span>Hype</span></div>
+                    <div className="stat"><b>{pubGoing}</b><span>Going</span></div>
+                  </div>
+                  <div className="moments">
+                    <h4>Hosted plans</h4>
+                    <div className="cards">
+                      {pubForms.map((f) => (
+                        <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 
@@ -685,12 +883,19 @@ export default function App() {
               <div className="hero">
                 {cur && <Image src={cur.img} alt="" fill sizes="400px" style={{ objectFit: 'cover' }} priority />}
                 <button className="back" onClick={() => go(lastTab || 'home')} aria-label="Back">{I.back}</button>
+                <button className="share-btn" onClick={() => cur && sharePlan(cur)} aria-label="Share this plan">{I.share}</button>
                 <span className="chip-badge">
                   {cur?.live ? <><i className="dot" />LIVE</> : <><i className="dot mute" />{cur?.startsShort || 'Starting soon'}</>}
                 </span>
               </div>
               <div className="sheet">
                 <h2>{cur?.title || '—'}</h2>
+                {cur?.host && (
+                  <div className="hostline big" onClick={() => go('profile', cur.host.handle)}>
+                    <img src={hostPhoto(cur.host)} alt="" />
+                    <span>Hosted by {cur.host.name} · {cur.host.handle}</span>
+                  </div>
+                )}
                 {cur?.live && (
                   <div className="livebar">
                     <span className="live-eye">{I.eye}<b>{fmt(cur.viewers)}</b>&nbsp;watching now</span>
@@ -703,6 +908,7 @@ export default function App() {
                   {(cur?.avs || []).slice(0, 4).map((n) => (
                     <img key={n} src={AVA(n)} alt="" />
                   ))}
+                  {cur && st.joins.includes(cur.id) && user && <img src={user.photo} alt="you" />}
                   <span>{cur ? `${cur.going} already here` : ''}</span>
                 </div>
                 <div className="meta">
@@ -861,12 +1067,7 @@ export default function App() {
               <div className="grab" />
               <h3>Settings</h3>
               <p className="psub">{user ? `${user.name} · ${user.handle}` : 'Guest'}</p>
-              <div className="setrow" onClick={() => {
-                if (!user) return openGate();
-                setName(user.name);
-                setSettings(false);
-                setEdit(true);
-              }}>
+              <div className="setrow" onClick={openEdit}>
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
                 Edit profile<span className="spacer" />
               </div>
@@ -896,20 +1097,41 @@ export default function App() {
         )}
 
         {/* EDIT */}
-        {edit && (
+        {edit && user && (
           <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) setEdit(false); }}>
             <div className="panel">
               <div className="grab" />
               <h3>Edit profile</h3>
-              <p className="psub">Your name and handle is how people find you.</p>
-              <label className="flabel" style={{ marginTop: 0 }}>Name</label>
+              <p className="psub">Your photo, name, and handle is how people find you.</p>
+              <div className="ava-edit">
+                <img src={ePhoto || user.photo} alt="profile" />
+                <div>
+                  <button className="edit" onClick={() => fileRef.current?.click()}>Change photo</button>
+                  <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPhotoFile} />
+                  <span className="ava-hint">JPG or PNG under 1.5MB. Updates everywhere instantly.</span>
+                </div>
+              </div>
+              <div className="ava-presets">
+                {[12, 32, 47, 5, 59, 44].map((n) => (
+                  <img key={n} src={AVA(n)} alt="" className={ePhoto === AVA(n) ? 'on' : ''} onClick={() => setEPhoto(AVA(n))} />
+                ))}
+              </div>
+              <label className="flabel">Name</label>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
               <label className="flabel">Handle</label>
-              <input className="input" value={user?.handle || ''} onChange={(e) => {
+              <input className="input" value={user.handle || ''} onChange={(e) => {
                 const v = e.target.value.trim();
                 setSt((s) => ({ ...s, user: { ...s.user, handle: v.startsWith('@') ? v : '@' + v } }));
               }} />
-              <button className="btn-black" style={{ width: '100%', marginTop: 22 }} onClick={() => { setEdit(false); showToast('Profile saved'); }}>Save</button>
+              <div className="link-row">
+                <span>{typeof window !== 'undefined' ? window.location.host : 'formnigani.com'}/@{String(user.handle || '').replace(/^@/, '')}</span>
+                <button onClick={() => copyLink(profileUrl(user.handle))}>Copy</button>
+              </div>
+              <button className="btn-black" style={{ width: '100%', marginTop: 22 }} onClick={() => {
+                setSt((s) => ({ ...s, user: { ...s.user, name: name.trim() || s.user.name, photo: ePhoto || s.user.photo } }));
+                setEdit(false);
+                showToast('Profile saved');
+              }}>Save</button>
             </div>
           </div>
         )}
