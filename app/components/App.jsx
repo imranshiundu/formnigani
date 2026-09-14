@@ -720,10 +720,18 @@ export default function App() {
   }, [forms, searchQ]);
   const sheetForm = sheet ? forms.find((f) => f.id === sheet) : null;
 
-  const tabbed = ['home', 'map', 'saved', 'profile'].includes(screen.name);
+  const tabbed = ['home', 'saved', 'profile'].includes(screen.name); // 'map' parked
   useEffect(() => {
     if (tabbed) setLastTab(screen.name);
   }, [screen.name, tabbed]);
+
+  /* ----- auth tab sync (gate routes here with up/in) ----- */
+  useEffect(() => {
+    if (screen.name === 'auth') {
+      setEmMode(screen.param === 'up' ? 'up' : 'in');
+      setEmErr('');
+    }
+  }, [screen]);
 
   /* ----- deep-link hash sync (/#/form/:id and /#/@handle) ----- */
   const screenRef = useRef(screen);
@@ -737,7 +745,7 @@ export default function App() {
       let h = '';
       if (screen.name === 'form' && screen.param) h = `#/form/${screen.param}`;
       else if (screen.name === 'profile' && screen.param) h = `#/@${screen.param.replace(/^@/, '')}`;
-      else if (['home', 'map', 'saved', 'profile', 'notifs'].includes(screen.name)) h = `#/${screen.name}`;
+      else if (['home', 'saved', 'profile', 'notifs'].includes(screen.name)) h = `#/${screen.name}`;
       if (h && window.location.hash !== h) window.location.hash = h;
     } catch {}
   }, [screen]);
@@ -757,7 +765,12 @@ export default function App() {
         if (!(s.name === 'profile' && s.param === handle)) setScreen({ name: 'profile', param: handle });
         return;
       }
-      m = h.match(/^#\/(home|map|saved|profile|notifs)$/);
+      if (h === '#/map') {
+        // Parked until the radar ships.
+        setScreen({ name: 'home', param: null });
+        return;
+      }
+      m = h.match(/^#\/(home|saved|profile|notifs)$/);
       if (m) {
         const t = m[1];
         if (s.name === t && !s.param) return;
@@ -771,8 +784,6 @@ export default function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
-
-  const f1 = forms.find((f) => f.id === 'f1');
 
   /* ----- public profile (@handle links) ----- */
   const viewingHandle = screen.name === 'profile' ? screen.param : null;
@@ -935,15 +946,18 @@ export default function App() {
                 <h1>Every day has<br /><em style={{ color: '#F07BE8', fontStyle: 'normal' }}>a plan.</em></h1>
                 <p className="sub">Real people, real plans — happening near you right now.</p>
                 {SB && (
+                  <div className="pillrow auth-tabs">
+                    <button className={`pill ${emMode === 'up' ? 'on' : ''}`} onClick={() => { setEmMode('up'); setEmErr(''); }}>Sign up</button>
+                    <button className={`pill ${emMode === 'in' ? 'on' : ''}`} onClick={() => { setEmMode('in'); setEmErr(''); }}>Sign in</button>
+                  </div>
+                )}
+                {SB && (
                   <div className="emailbox">
-                    <input className="input" value={em} onChange={(e) => setEm(e.target.value)} placeholder="Email address" inputMode="email" autoComplete="email" />
+                    <input className="input" value={em} onChange={(e) => setEm(e.target.value)} placeholder="Email address" inputMode="email" autoComplete="email" onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
                     <input className="input" type="password" value={emPw} onChange={(e) => setEmPw(e.target.value)} placeholder="Password (6+ characters)" autoComplete={emMode === 'up' ? 'new-password' : 'current-password'} onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
                     {emErr ? <div className="hmsg bad">{emErr}</div> : <div className="hmsg" />}
                     <button className="btn-go" onClick={doEmail} disabled={emBusy}>
-                      {emBusy ? 'One moment...' : emMode === 'up' ? 'Create account' : 'Log in with email'}
-                    </button>
-                    <button className="ghost-link" onClick={() => { setEmMode(emMode === 'up' ? 'in' : 'up'); setEmErr(''); }}>
-                      {emMode === 'up' ? 'Have an account? Log in' : 'New here? Create account'}
+                      {emBusy ? 'One moment...' : emMode === 'up' ? 'Create account' : 'Log in'}
                     </button>
                     <div className="ordiv"><i />or<i /></div>
                   </div>
@@ -963,9 +977,9 @@ export default function App() {
               <p className="sub">Pick a handle — that&apos;s how people find you.</p>
               <div className="hcard">
                 <label>Your name</label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="off" />
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="off" autoFocus onKeyDown={(e) => { if (e.key === 'Enter' && handleMsg.kind === 'ok') submitHandle(); }} />
                 <label>Your handle</label>
-                <input className="input" value={handle} onChange={(e) => onHandleInput(e.target.value)} placeholder="@nightowl" autoComplete="off" spellCheck="false" />
+                <input className="input" value={handle} onChange={(e) => onHandleInput(e.target.value)} placeholder="@nightowl" autoComplete="off" spellCheck="false" onKeyDown={(e) => { if (e.key === 'Enter' && handleMsg.kind === 'ok') submitHandle(); }} />
                 <div className={`hmsg ${handleMsg.kind}`}>{handleMsg.text}</div>
               </div>
               <button className="btn-black" disabled={handleMsg.kind !== 'ok'} onClick={submitHandle}>Continue</button>
@@ -1119,7 +1133,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* MAP */}
+          {/* MAP — parked until the radar ships. Uncomment to restore.
           <section className={`screen s-map ${on('map') ? 'on' : ''}`}>
             <div className="scr">
               <svg className="mapsvg" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -1154,6 +1168,7 @@ export default function App() {
               </div>
             </div>
           </section>
+          */}
 
           {/* DETAIL */}
           <section className={`screen s-form ${on('form') ? 'on' : ''}`}>
@@ -1304,8 +1319,10 @@ export default function App() {
           <nav className="nav">
             <a className={screen.name === 'home' ? 'on' : ''} onClick={() => openTab('home')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h5v-6h4v6h5V9.5" /></svg>Home</a>
+            {/* Map tab — parked until the radar ships.
             <a className={screen.name === 'map' ? 'on' : ''} onClick={() => openTab('map')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z" /><circle className="hole" cx="12" cy="10" r="2.5" /></svg>Map</a>
+            */}
             <a className={screen.name === 'saved' ? 'on' : ''} onClick={() => openTab('saved')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4h12v17l-6-4-6 4z" /></svg>Saved</a>
             <a className={screen.name === 'profile' ? 'on' : ''} onClick={() => openTab('profile')}>
@@ -1354,12 +1371,8 @@ export default function App() {
               <div className="grab" />
               <h3>Welcome to FormNiGani</h3>
               <p className="psub">Log in to join plans, host your own, and save your weekend highlights.</p>
-              <GoogleButton id="gate" onClick={googleGo} />
-              {SB && (
-                <button className="guest-skip" onClick={() => { setGate(false); go('auth'); }}>
-                  Continue with email instead
-                </button>
-              )}
+              <button className="btn-black gate-btn" onClick={() => { setGate(false); go('auth', 'up'); }}>Sign up</button>
+              <button className="btn-ghost gate-btn" onClick={() => { setGate(false); go('auth', 'in'); }}>Sign in</button>
               <button className="guest-skip" onClick={guestSkip}>Just looking around — continue as guest</button>
             </div>
           </div>

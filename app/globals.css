@@ -443,3 +443,10 @@ body{font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;color:v
 .feed-error{text-align:center;padding:56px 28px}
 .feed-error h3{font-size:19px;font-weight:800;letter-spacing:-.4px}
 .feed-error p{font-size:14px;color:var(--gray);margin:10px 0 22px}
+
+/* ---------- GATE + AUTH TABS ---------- */
+.gate-btn{width:100%;margin-top:10px}
+.btn-ghost.gate-btn{border-color:var(--brand)}
+.auth-tabs{justify-content:center;margin:4px 0 2px}
+.auth-tabs .pill{background:rgba(255,255,255,.16);border-color:transparent;color:#fff}
+.auth-tabs .pill.on{background:#fff;border-color:#fff;color:#141418;box-shadow:0 8px 20px rgba(0,0,0,.25)}
