@@ -345,19 +345,19 @@ export default function App() {
 
   const go = useCallback((name, param = null) => {
     setScreen({ name, param });
-    // Keep the URL in sync directly — never rely on hashchange firing.
+    // URL-based routing with history.pushState
     try {
-      let h = '';
-      if (name === 'form' && param) h = `#/form/${param}`;
-      else if (name === 'profile' && param) h = `#/@${String(param).replace(/^@/, '')}`;
-      else if (['home', 'saved', 'profile', 'notifs'].includes(name)) h = `#/${name}`;
-      if (h && window.location.hash !== h) window.location.hash = h;
+      let p = '';
+      if (name === 'form' && param) p = `/form/${param}`;
+      else if (name === 'profile' && param) p = `/@${String(param).replace(/^@/, '')}`;
+      else if (['home', 'saved', 'profile', 'chat', 'notifs'].includes(name)) p = `/${name}`;
+      if (p && window.location.pathname !== p) history.pushState({ screen: name, param }, '', p);
     } catch {}
   }, []);
 
   const doShare = useCallback(
     async ({ title, text, path }) => {
-      const url = `${window.location.origin}/#${path}`;
+      const url = `${window.location.origin}${path}`;
       if (navigator.share) {
         try {
           await navigator.share({ title, text, url });
@@ -584,22 +584,24 @@ export default function App() {
   const deepLinked = useRef(false);
   useEffect(() => {
     try {
-      const h = window.location.hash;
-      let m = h.match(/^#\/form\/([\w-]+)/);
+      const p = window.location.pathname;
+      let m = p.match(/^\/form\/([\w-]+)/);
       if (m) {
         deepLinked.current = true;
         setScreen({ name: 'form', param: m[1] });
         return;
       }
-      m = h.match(/^#\/@([\w]+)/);
+      m = p.match(/^\/@([\w]+)/);
       if (m) {
         deepLinked.current = true;
         setScreen({ name: 'profile', param: '@' + m[1].toLowerCase() });
         return;
       }
-      // Plain tab hashes are never restored. The app always boots at Discovery.
-      if (/^#\/(home|saved|profile|notifs|map)/.test(h)) {
-        history.replaceState(null, '', window.location.pathname + window.location.search);
+      m = p.match(/^\/(home|saved|profile|chat|notifs)$/);
+      if (m) {
+        deepLinked.current = true;
+        setScreen({ name: m[1], param: null });
+        return;
       }
     } catch {}
   }, []);
@@ -894,6 +896,17 @@ export default function App() {
     go(t);
   };
 
+  // Sync chatsOpen with URL-based chat screen
+  useEffect(() => {
+    if (screen.name === 'chat' && user) {
+      setChatsOpen(true);
+      loadConversations();
+      setChatUnread(0);
+    } else if (screen.name !== 'chat') {
+      setChatsOpen(false);
+    }
+  }, [screen.name, user]);
+
   /* ----- derived ----- */
   const cur = useMemo(() => forms.find((f) => f.id === screen.param), [forms, screen.param]);
   const vibes = auth.profile?.vibes || [];
@@ -963,7 +976,7 @@ export default function App() {
   }, [forms, searchQ]);
   const sheetForm = sheet ? forms.find((f) => f.id === sheet) : null;
 
-  const tabbed = ['home', 'saved', 'profile'].includes(screen.name); // 'map' parked
+  const tabbed = ['home', 'saved', 'profile', 'chat'].includes(screen.name);
   useEffect(() => {
     if (tabbed) setLastTab(screen.name);
   }, [screen.name, tabbed]);
@@ -988,36 +1001,25 @@ export default function App() {
   const chatThreadRef = useRef(null);
   chatThreadRef.current = chatThreadWith;
   useEffect(() => {
-    try {
-      let h = '';
-      if (screen.name === 'form' && screen.param) h = `#/form/${screen.param}`;
-      else if (screen.name === 'profile' && screen.param) h = `#/@${screen.param.replace(/^@/, '')}`;
-      else if (['home', 'saved', 'profile', 'notifs'].includes(screen.name)) h = `#/${screen.name}`;
-      if (h && window.location.hash !== h) window.location.hash = h;
-    } catch {}
+    // URL stays in sync via go()'s history.pushState — nothing to do here.
   }, [screen]);
   useEffect(() => {
-    const onHash = () => {
+    const onPop = () => {
       const s = screenRef.current;
       const u = userRef.current;
-      const h = window.location.hash;
-      let m = h.match(/^#\/form\/([\w-]+)/);
+      const p = window.location.pathname;
+      let m = p.match(/^\/form\/([\w-]+)/);
       if (m) {
         if (!(s.name === 'form' && s.param === m[1])) setScreen({ name: 'form', param: m[1] });
         return;
       }
-      m = h.match(/^#\/@([\w]+)/);
+      m = p.match(/^\/@([\w]+)/);
       if (m) {
         const handle = '@' + m[1].toLowerCase();
         if (!(s.name === 'profile' && s.param === handle)) setScreen({ name: 'profile', param: handle });
         return;
       }
-      if (h === '#/map') {
-        // Parked until the radar ships.
-        setScreen({ name: 'home', param: null });
-        return;
-      }
-      m = h.match(/^#\/(home|saved|profile|notifs)$/);
+      m = p.match(/^\/(home|saved|profile|chat|notifs)$/);
       if (m) {
         const t = m[1];
         if (s.name === t && !s.param) return;
@@ -1026,10 +1028,12 @@ export default function App() {
           return;
         }
         setScreen({ name: t, param: null });
+      } else if (p === '/' || p === '') {
+        if (s.name !== 'home') setScreen({ name: 'home', param: null });
       }
     };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   /* ----- public profile (@handle links) ----- */
@@ -1156,12 +1160,9 @@ export default function App() {
             <div className="scr splash-scr">
               <ThreeHero className="splash-three" />
               <div className="logo-lock">
-                <svg viewBox="0 0 48 48">
-                  <rect width="48" height="48" rx="14" fill="#7C3AED" />
-                  <g transform="translate(12,8)" fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" fill="#fff" stroke="none" />
-                    <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".5" fill="#fff" stroke="none" />
-                  </g>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="splash-flame">
+                  <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" />
+                  <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".45" />
                 </svg>
                 <b>Form Ni Gani?</b>
               </div>
@@ -1181,7 +1182,7 @@ export default function App() {
             <div className="scr">
               <div className="blob b1" />
               <div className="blob b2" />
-              <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
+              <div className="brandmini"><BrandMark /><b>Form Ni Gani?</b></div>
               <div className="stack tilt">
                 <img className="p1" src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?w=600&h=720&fit=crop&q=80" alt="" />
                 <img className="p2" src="https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=600&h=720&fit=crop&q=80" alt="" />
@@ -1215,7 +1216,7 @@ export default function App() {
             <div className="scr">
               <div className="blob b1" />
               <div className="blob b2" />
-              <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
+              <div className="brandmini"><BrandMark /><b>Form Ni Gani?</b></div>
               <div className="stack tilt">
                 <img className="p1" src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&h=720&fit=crop&q=80" alt="" />
                 <img className="p2" src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=720&fit=crop&q=80" alt="" />
@@ -1245,7 +1246,7 @@ export default function App() {
               <ThreeHero className="auth-three" />
               <div className="veil" />
               <div className="inner">
-                <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
+                <div className="brandmini"><BrandMark /><b>Form Ni Gani?</b></div>
                 <h1>Every day has<br /><em style={{ color: '#F07BE8', fontStyle: 'normal' }}>a plan.</em></h1>
                 {SB && (
                   <div className="pillrow auth-tabs">
@@ -1254,10 +1255,10 @@ export default function App() {
                   </div>
                 )}
                 {SB && (
-                  <div className="emailbox">
-                    <input className="input" value={em} onChange={(e) => setEm(e.target.value)} placeholder="Email address" inputMode="email" autoComplete="email" onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
+                  <form className="emailbox" onSubmit={(e) => { e.preventDefault(); doEmail(); }} autoComplete="on">
+                    <input className="input" name="email" value={em} onChange={(e) => setEm(e.target.value)} placeholder="Email address" inputMode="email" autoComplete="email" onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
                     <div className="pw-wrap">
-                      <input className="input" type={showPw ? 'text' : 'password'} value={emPw} onChange={(e) => setEmPw(e.target.value)} placeholder="Password (6+ characters)" autoComplete={emMode === 'up' ? 'new-password' : 'current-password'} onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
+                      <input className="input" name="password" type={showPw ? 'text' : 'password'} value={emPw} onChange={(e) => setEmPw(e.target.value)} placeholder="Password (6+ characters)" autoComplete={emMode === 'up' ? 'new-password' : 'current-password'} onKeyDown={(e) => { if (e.key === 'Enter') doEmail(); }} />
                       <button type="button" className="pw-eye" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'}>
                         {showPw ? (
                           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" /><path d="M14.12 14.12a3 3 0 11-4.24-4.24" /><path d="M1 1l22 22" /></svg>
@@ -1271,7 +1272,7 @@ export default function App() {
                       {emBusy ? 'One moment...' : emMode === 'up' ? 'Create account' : 'Log in'}
                     </button>
                     <div className="ordiv"><i />or<i /></div>
-                  </div>
+                  </form>
                 )}
                 <GoogleButton id="auth" onClick={googleGo} />
                 <button className="guest-btn" onClick={() => go('home')}>Continue as guest</button>
@@ -1731,10 +1732,7 @@ export default function App() {
             */}
             <a className={screen.name === 'saved' ? 'on' : ''} onClick={() => openTab('saved')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4h12v17l-6-4-6 4z" /></svg>Saved</a>
-            <a className={chatsOpen ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3h11A2.5 2.5 0 0120 5.5v9a2.5 2.5 0 01-2.5 2.5H9l-5 4z" /><path d="M8 8.5h8M8 12h5" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
-            </a>
-            <a className={chatsOpen ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
+            <a className={screen.name === 'chat' ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); go('chat'); go('chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3h11A2.5 2.5 0 0120 5.5v9a2.5 2.5 0 01-2.5 2.5H9l-5 4z" /><path d="M8 8.5h8M8 12h5" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
             </a>
             <a className={screen.name === 'profile' ? 'on' : ''} onClick={() => openTab('profile')}>
@@ -1745,6 +1743,17 @@ export default function App() {
             go('create');
           }}>{I.plus}</button>
         </div>
+
+        {/* INSTALL BANNER */}
+        {deferred && tabbed && screen.name === 'home' && (
+          <div className="install-banner" onClick={installApp}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+            <span>Install Form Ni Gani?</span>
+            <button className="install-dismiss" onClick={(e) => { e.stopPropagation(); setDeferred(null); }} aria-label="Dismiss">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+        )}
 
         {/* SEARCH */}
         {searchOpen && (
@@ -1786,22 +1795,7 @@ export default function App() {
             onOpenThread={openThread}
             onCloseThread={() => { setChatThreadWith(null); setThreadMsgs([]); }}
             onSend={sendMessage}
-            onClose={() => { setChatsOpen(false); setChatThreadWith(null); setChatUnread(0); }}
-            onProfile={(h) => { setChatsOpen(false); go('profile', h); }}
-          />
-        )}
-
-        {/* CHATS */}
-        {chatsOpen && user && (
-          <Chats
-            me={auth.profile || { id: profId }}
-            conversations={conversations}
-            thread={chatThreadWith ? threadMsgs : null}
-            threadWith={chatThreadWith ? conversations.find((c) => c.id === chatThreadWith)?.other || { id: chatThreadWith } : null}
-            onOpenThread={openThread}
-            onCloseThread={() => { setChatThreadWith(null); setThreadMsgs([]); }}
-            onSend={sendMessage}
-            onClose={() => { setChatsOpen(false); setChatThreadWith(null); setChatUnread(0); }}
+            onClose={() => { setChatsOpen(false); setChatThreadWith(null); setChatUnread(0); go('home'); }}
             onProfile={(h) => { setChatsOpen(false); go('profile', h); }}
           />
         )}
@@ -2100,25 +2094,11 @@ function ProfileEvents({ tab, onTab, events, state, onOpen, onHost, st, user, ca
   );
 }
 
-function BrandMark({ light = false }) {
-  if (light) {
-    return (
-      <svg viewBox="0 0 48 48">
-        <rect width="48" height="48" rx="14" fill="#7C3AED" />
-        <g transform="translate(12,8) scale(1)" fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" fill="#fff" stroke="none" />
-          <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".5" fill="#fff" stroke="none" />
-        </g>
-      </svg>
-    );
-  }
+function BrandMark() {
   return (
-    <svg viewBox="0 0 48 48">
-      <rect width="48" height="48" rx="14" fill="#7C3AED" />
-      <g transform="translate(12,8)" fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" fill="#fff" stroke="none" />
-        <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".5" fill="#fff" stroke="none" />
-      </g>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="brandmark">
+      <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" />
+      <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".45" />
     </svg>
   );
 }

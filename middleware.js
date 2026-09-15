@@ -6,7 +6,10 @@ export async function middleware(req) {
   // Landing on the apex: formnigani.co.ke serves the marketing page,
   // the app lives on app.formnigani.co.ke (and any other host).
   const host = (req.headers.get('host') || '').toLowerCase();
-  if ((host === 'formnigani.co.ke' || host === 'www.formnigani.co.ke') && req.nextUrl.pathname === '/') {
+  const path = req.nextUrl.pathname;
+  const isApex = host === 'formnigani.co.ke' || host === 'www.formnigani.co.ke';
+  // Apex root → landing page; everything else → the React app
+  if (isApex && path === '/') {
     return NextResponse.rewrite(new URL('/landing.html', req.url));
   }
 
