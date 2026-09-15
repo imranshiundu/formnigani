@@ -18,6 +18,8 @@ import {
 import { FlameBurst, StoriesRail, StoryViewer } from './Stories';
 import CommentSheet from './Comments';
 import StatusComposer from './StatusComposer';
+import Chats from './Chats';
+import { Sticker } from './Stickers';
 import { ProfileSheet, RichText } from './Social';
 import { db, isConfigured } from '@/lib/db';
 import { rowToForm } from '@/lib/db/supabase';
@@ -306,9 +308,16 @@ export default function App() {
   const [statusIdx, setStatusIdx] = useState(null);
   const [composer, setComposer] = useState(false);
   const [newCount, setNewCount] = useState(0);
-  const [profTab, setProfTab] = useState('attended');
-  const [profEvents, setProfEvents] = useState({ attended: [], hosted: [] });
+  const [profTab, setProfTab] = useState('attended');  const [profEvents, setProfEvents] = useState({ attended: [], hosted: [] });
   const [profEventsState, setProfEventsState] = useState('idle');
+  const [chHypes, setChHypes] = useState({}); // commentId -> count
+  const [chMine, setChMine] = useState(new Set());
+  const [waInfo, setWaInfo] = useState({ count: 0, joined: false, link: null, editing: false, url: '' });
+  const [chatsOpen, setChatsOpen] = useState(false);
+  const [chatThreadWith, setChatThreadWith] = useState(null); // profile id
+  const [conversations, setConversations] = useState([]);
+  const [threadMsgs, setThreadMsgs] = useState([]);
+  const [chatUnread, setChatUnread] = useState(0);
   const [pubProfile, setPubProfile] = useState(null);
   const [sheet, setSheet] = useState(null); // formId with open comment sheet
   const [profSheet, setProfSheet] = useState(null); // handle with open profile sheet
@@ -358,9 +367,9 @@ export default function App() {
     },
     [showToast]
   );
-  const sharePlan = useCallback((f) => doShare({ title: f.title, text: `${f.title}, only on FormNiGani`, path: `/form/${f.id}` }), [doShare]);
+  const sharePlan = useCallback((f) => doShare({ title: f.title, text: `${f.title}, only on Form Ni Gani?`, path: `/form/${f.id}` }), [doShare]);
   const shareProfile = useCallback(
-    (handle, name) => doShare({ title: `${name} on FormNiGani`, text: `Follow ${name} on FormNiGani`, path: `/@${String(handle).replace(/^@/, '')}` }),
+    (handle, name) => doShare({ title: `${name} on Form Ni Gani?`, text: `Follow ${name} on Form Ni Gani?`, path: `/@${String(handle).replace(/^@/, '')}` }),
     [doShare]
   );
 
@@ -415,6 +424,91 @@ export default function App() {
       })
       .catch(() => setProfEventsState('error'));
   }, []);
+
+  /* ----- comment hypes (comment section only, never on profiles) ----- */
+  const loadChHypes = useCallback(() => {
+    if (!profId) return;
+    db.commentHypesFor(sheetRef.current, profId).then(({ mine }) => setChMine(new Set(mine))).catch(() => {});
+  }, [profId]);
+  const hypeOf = (commentId) => chHypes[commentId] || 0;
+  const onHypeComment = async (commentId) => {
+    if (!user) return openGate(() => {}, 'hype comments');
+    const mine = chMine.has(commentId);
+    const optimistic = Math.max(0, (chHypes[commentId] || 0) + (mine ? -1 : 1));
+    setChHypes((h) => ({ ...h, [commentId]: optimistic }));
+    setChMine((m) => {
+      const n = new Set(m);
+      if (mine) n.delete(commentId); else n.add(commentId);
+      return n;
+    });
+    try {
+      const count = await db.hypeComment(commentId, mine ? 'remove' : 'add', profId);
+      setChHypes((h) => ({ ...h, [commentId]: count }));
+    } catch {
+      showToast('Sync failed, kept on this device');
+    }
+  };
+
+  /* ----- whatsapp group ----- */
+  const loadWa = useCallback((f) => {
+    if (!f) return;
+    db.waJoinedCount(f.id).then((count) => setWaInfo((w) => ({ ...w, count, link: f.waLink || null }))).catch(() => {});
+    if (profId) {
+      db.conversations(profId).catch(() => {});
+    }
+  }, [profId]);
+  const saveWaLink = async () => {
+    if (!cur) return;
+    try {
+      await db.setWaLink(cur.id, waInfo.url.trim());
+      setWaInfo((w) => ({ ...w, link: waInfo.url.trim(), editing: false }));
+      showToast('Group link saved');
+    } catch (e) {
+      showToast(e.message || 'Could not save, try again');
+    }
+  };
+  const openWaLink = async () => {
+    if (!cur || !waInfo.link) return;
+    if (!st.joins.includes(cur.id)) {
+      showToast("Join the plan first to get the group link");
+      return;
+    }
+    if (profId) {
+      db.waJoin(cur.id, profId).then((count) => setWaInfo((w) => ({ ...w, count }))).catch(() => {});
+    }
+    window.open(waInfo.link, '_blank', 'noopener');
+  };
+  const confirmWaJoined = async () => {
+    if (!cur || !profId) return;
+    const count = await db.waJoin(cur.id, profId).catch(() => null);
+    if (count != null) {
+      setWaInfo((w) => ({ ...w, count }));
+      showToast('Marked as joined. See you there.');
+    }
+  };
+
+  /* ----- chats ----- */
+  const loadConversations = useCallback(() => {
+    if (!profId) return;
+    db.conversations(profId).then((list) => setConversations(list)).catch(() => {});
+  }, [profId]);
+  const openThread = (otherId) => {
+    setChatThreadWith(otherId);
+    if (!profId) return;
+    db.threadWith(profId, otherId).then((list) => setThreadMsgs(list)).catch(() => {});
+  };
+  const sendMessage = async ({ recipient, body, sticker }) => {
+    if (!profId) return;
+    // Optimistic: renders instantly, syncs under the cursor.
+    const temp = { id: 'tmp' + Date.now(), sender: profId, recipient, body, sticker, created_at: new Date().toISOString() };
+    setThreadMsgs((m) => [...m, temp]);
+    try {
+      const saved = await db.sendMessage({ sender: profId, recipient, body, sticker });
+      setThreadMsgs((m) => m.map((x) => (x.id === temp.id ? saved : x)));
+    } catch {
+      showToast('Message not sent, try again');
+    }
+  };
 
   /* ----- deep-link validation once the backend answers ----- */
   useEffect(() => {
@@ -564,6 +658,22 @@ export default function App() {
         }
       } else if (ev.kind === 'status') {
         loadStatuses();
+      } else if (ev.kind === 'comment-hype' && ev.row) {
+        setChHypes((h) => ({ ...h, [ev.row.comment_id]: (h[ev.row.comment_id] || 0) + (ev.type === 'DELETE' ? -1 : 1) }));
+      } else if (ev.kind === 'message' && ev.row) {
+        const u = userRef.current;
+        if (u && profIdRef.current) {
+          const mine = ev.row.sender === profIdRef.current;
+          if (mine) {
+            setThreadMsgs((m) => (m.some((x) => x.id === ev.row.id) ? m : [...m, ev.row]));
+          } else {
+            const me = String(u.handle || '').toLowerCase();
+            pushActivity(`New message from someone`);
+            setChatUnread((c) => c + 1);
+            loadConversations();
+            if (chatThreadRef.current === ev.row.sender) setThreadMsgs((m) => (m.some((x) => x.id === ev.row.id) ? m : [...m, ev.row]));
+          }
+        }
       } else if (ev.kind === 'hype' && ev.row) {
         const d = ev.type === 'DELETE' ? -1 : 1;
         setForms((prev) => prev.map((f) => (f.id === ev.row.form_id ? { ...f, hype: Math.max(0, f.hype + d) } : f)));
@@ -849,6 +959,10 @@ export default function App() {
   userRef.current = st.user;
   const formsRef = useRef(forms);
   formsRef.current = forms;
+  const profIdRef = useRef(null);
+  profIdRef.current = profId;
+  const chatThreadRef = useRef(null);
+  chatThreadRef.current = chatThreadWith;
   useEffect(() => {
     try {
       let h = '';
@@ -904,14 +1018,23 @@ export default function App() {
       : null;
   const pubBio = pubProfile?.bio || '';
 
+  /* ----- whatsapp info loads with the detail page ----- */
+  useEffect(() => {
+    if (screen.name !== 'form' || !cur) return;
+    loadWa(cur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen.name, screen.param, cur?.id, cur?.waLink]);
+
   /* ----- profile events load when the profile screen opens ----- */
   useEffect(() => {
     if (screen.name !== 'profile') return;
     if (isOwnProfile && user) {
+      setProfTab('attended');
       loadProfEvents(user.handle, profId);
       return;
     }
     if (!isOwnProfile && viewingHandle) {
+      setProfTab('hosted'); // others' profiles open on Hosted
       let cancelled = false;
       db.profileByHandle(viewingHandle).then((p) => {
         if (cancelled) return;
@@ -1021,7 +1144,7 @@ export default function App() {
               <ThreeHero className="splash-three" />
               <div className="logo-lock">
                 <svg viewBox="0 0 48 48" fill="none"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor" /><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#A21CAF" strokeWidth="2.7" strokeLinecap="round" /><circle cx="24.6" cy="28.9" r="1.6" fill="#A21CAF" /></svg>
-                <b>FormNiGani</b>
+                <b>Form Ni Gani?</b>
               </div>
             </div>
           </section>
@@ -1039,7 +1162,7 @@ export default function App() {
             <div className="scr">
               <div className="blob b1" />
               <div className="blob b2" />
-              <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
+              <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
               <div className="stack tilt">
                 <img className="p1" src="https://picsum.photos/seed/fng-sunset-girl/600/720" alt="" />
                 <img className="p2" src="https://picsum.photos/seed/fng-friends/600/720" alt="" />
@@ -1073,7 +1196,7 @@ export default function App() {
             <div className="scr">
               <div className="blob b1" />
               <div className="blob b2" />
-              <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
+              <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
               <div className="stack tilt">
                 <img className="p1" src="https://picsum.photos/seed/fng-crowd/600/720" alt="" />
                 <img className="p2" src="https://picsum.photos/seed/fng-dance/600/720" alt="" />
@@ -1103,7 +1226,7 @@ export default function App() {
               <ThreeHero className="auth-three" />
               <div className="veil" />
               <div className="inner">
-                <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
+                <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
                 <h1>Every day has<br /><em style={{ color: '#F07BE8', fontStyle: 'normal' }}>a plan.</em></h1>
                 {SB && (
                   <div className="pillrow auth-tabs">
@@ -1296,6 +1419,8 @@ export default function App() {
                     state={profEventsState}
                     onOpen={(id) => go('form', id)}
                     st={st}
+                    user={user}
+                    cards
                   />
                 </>
               )}
@@ -1316,6 +1441,26 @@ export default function App() {
                     <div className="hdl">{pubHost.handle}</div>
                     {pubBio ? <p className="prof-bio">{pubBio}</p> : null}
                   </div>
+                  <div className="pub-cta">
+                    <button className="hype-btn" onClick={() => {
+                      if (!profId || !pubProfile?.id) { showToast('Syncing profiles, try again in a moment'); return; }
+                      openThread(pubProfile.id);
+                      setChatsOpen(true);
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>
+                      Message
+                    </button>
+                  </div>
+                  <div className="pub-cta">
+                    <button className="hype-btn" onClick={() => {
+                      if (!profId || !pubProfile?.id) { showToast('Syncing profiles, try again in a moment'); return; }
+                      openThread(pubProfile.id);
+                      setChatsOpen(true);
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>
+                      Message
+                    </button>
+                  </div>
                   <ProfileEvents
                     tab={profTab}
                     onTab={setProfTab}
@@ -1323,6 +1468,8 @@ export default function App() {
                     state={profEventsState}
                     onOpen={(id) => go('form', id)}
                     st={st}
+                    user={user}
+                    cards
                   />
                 </>
               )}
@@ -1415,6 +1562,37 @@ export default function App() {
                         #{t}
                       </button>
                     ))}
+                  </div>
+                )}
+                {cur && st.joins.includes(cur.id) && (
+                  <div className="wa-box">
+                    <div className="wa-head">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>
+                      <b>Group chat</b>
+                      <span className="wa-count">{waInfo.count} joined</span>
+                    </div>
+                    {cur.host && user && cur.host.handle.toLowerCase() === String(user.handle || '').toLowerCase() ? (
+                      waInfo.editing ? (
+                        <div className="wa-edit">
+                          <input className="input" value={waInfo.url} onChange={(e) => setWaInfo((w) => ({ ...w, url: e.target.value }))} placeholder="Paste the WhatsApp group invite link" />
+                          <button className="btn-go wa-save" onClick={saveWaLink}>Save</button>
+                        </div>
+                      ) : (
+                        <button className="wa-btn host" onClick={() => setWaInfo((w) => ({ ...w, editing: true, url: w.link || '' }))}>
+                          {waInfo.link ? 'Edit group link' : 'Add the WhatsApp group link'}
+                        </button>
+                      )
+                    ) : waInfo.link ? (
+                      <>
+                        <button className="wa-btn" onClick={openWaLink}>Open the WhatsApp group</button>
+                        <button className="wa-confirm" onClick={confirmWaJoined}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                          I clicked and joined
+                        </button>
+                      </>
+                    ) : (
+                      <p className="wa-none">The host has not added a group link yet.</p>
+                    )}
                   </div>
                 )}
                 <div className="crow-entry" onClick={() => cur && openComments(cur.id)}>
@@ -1521,6 +1699,12 @@ export default function App() {
             */}
             <a className={screen.name === 'saved' ? 'on' : ''} onClick={() => openTab('saved')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4h12v17l-6-4-6 4z" /></svg>Saved</a>
+            <a className={chatsOpen ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
+            </a>
+            <a className={chatsOpen ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
+            </a>
             <a className={screen.name === 'profile' ? 'on' : ''} onClick={() => openTab('profile')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>Profile</a>
           </nav>
@@ -1560,7 +1744,36 @@ export default function App() {
           </div>
         )}
 
-        {/* GATE */}
+        {/* CHATS */}
+        {chatsOpen && user && (
+          <Chats
+            me={auth.profile || { id: profId }}
+            conversations={conversations}
+            thread={chatThreadWith ? threadMsgs : null}
+            threadWith={chatThreadWith ? conversations.find((c) => c.id === chatThreadWith)?.other || { id: chatThreadWith } : null}
+            onOpenThread={openThread}
+            onCloseThread={() => { setChatThreadWith(null); setThreadMsgs([]); }}
+            onSend={sendMessage}
+            onClose={() => { setChatsOpen(false); setChatThreadWith(null); setChatUnread(0); }}
+            onProfile={(h) => { setChatsOpen(false); go('profile', h); }}
+          />
+        )}
+
+        {/* CHATS */}
+        {chatsOpen && user && (
+          <Chats
+            me={auth.profile || { id: profId }}
+            conversations={conversations}
+            thread={chatThreadWith ? threadMsgs : null}
+            threadWith={chatThreadWith ? conversations.find((c) => c.id === chatThreadWith)?.other || { id: chatThreadWith } : null}
+            onOpenThread={openThread}
+            onCloseThread={() => { setChatThreadWith(null); setThreadMsgs([]); }}
+            onSend={sendMessage}
+            onClose={() => { setChatsOpen(false); setChatThreadWith(null); setChatUnread(0); }}
+            onProfile={(h) => { setChatsOpen(false); go('profile', h); }}
+          />
+        )}
+
         {/* GATE — mid-action sign-in prompt */}
         {gate && (
           <div className="modal on gate-modal" onClick={(e) => { if (e.target === e.currentTarget) guestSkip(); }}>
@@ -1748,13 +1961,17 @@ export default function App() {
         {offline && <div className="offline-bar on">You&apos;re offline. Saved plans still work</div>}
         <div className="hi" />
       </div>
-      <div className="stage-cap"><b>FormNiGani</b> · find your plan</div>
+      <div className="stage-cap"><b>Form Ni Gani?</b> · find your plan</div>
     </div>
   );
 }
 
-function ProfileEvents({ tab, onTab, events, state, onOpen, st }) {
-  const list = tab === 'hosted' ? events.hosted : events.attended;
+function ProfileEvents({ tab, onTab, events, state, onOpen, onHost, st, user, cards, defaultTab }) {
+  const hosted = useMemo(
+    () => [...events.hosted].sort((a, b) => Number(b.live || false) - Number(a.live || false)),
+    [events.hosted]
+  );
+  const list = tab === 'hosted' ? hosted : events.attended;
   return (
     <>
       <div className="stats">
@@ -1766,30 +1983,38 @@ function ProfileEvents({ tab, onTab, events, state, onOpen, st }) {
         <button className={`ptab ${tab === 'attended' ? 'on' : ''}`} onClick={() => onTab('attended')}>Attended</button>
         <button className={`ptab ${tab === 'hosted' ? 'on' : ''}`} onClick={() => onTab('hosted')}>Hosted</button>
       </div>
-      <div className="plist">
-        {state === 'loading' && (
-          <>
-            <div className="skel slim" />
-            <div className="skel slim" />
-          </>
-        )}
-        {state !== 'loading' && list.length === 0 && (
-          <p className="empty">{tab === 'hosted' ? 'No plans hosted yet.' : 'No events attended yet. Join one from the feed.'}</p>
-        )}
-        {list.map((f) => {
-          const isHosted = tab === 'hosted';
-          const badge = f.live ? 'Live now' : f.startsShort || 'Starting soon';
-          return (
-            <div key={f.id} className="prow" onClick={() => onOpen(f.id)}>
-              <div className="prow-main">
-                <b>{f.title}</b>
-                <span>{f.area} · {f.going} going</span>
+      {state === 'loading' && (
+        <div className="plist">
+          <div className="skel slim" />
+          <div className="skel slim" />
+        </div>
+      )}
+      {state !== 'loading' && list.length === 0 && (
+        <p className="empty">{tab === 'hosted' ? 'No plans hosted yet.' : 'No events attended yet. Join one from the feed.'}</p>
+      )}
+      {tab === 'hosted' && cards ? (
+        <div className="cards pcards">
+          {list.map((f) => (
+            <Card key={f.id} f={f} saved={st.saves.includes(f.id)} hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={onOpen} onSave={(id) => onHost?.('save', id)} onHype={(id, el) => onHost?.('hype', id, el)} onHost={(h) => onHost?.('profile', h)} onShare={(f) => onHost?.('share', f)} cc={0} onComments={(id) => onHost?.('comments', id)} onUser={(h) => onHost?.('profile', h)} />
+          ))}
+        </div>
+      ) : (
+        <div className="plist">
+          {list.map((f) => {
+            const isHosted = tab === 'hosted';
+            const badge = f.live ? 'Live now' : f.startsShort || 'Starting soon';
+            return (
+              <div key={f.id} className="prow" onClick={() => onOpen(f.id)}>
+                <div className="prow-main">
+                  <b>{f.title}</b>
+                  <span>{f.area} · {f.going} going</span>
+                </div>
+                <span className={`rolebadge ${f.live ? 'live' : ''}`}>{isHosted ? 'Hosted' : 'Went'} · {badge}</span>
               </div>
-              <span className={`rolebadge ${f.live ? 'live' : ''}`}>{isHosted ? 'Hosted' : 'Went'} · {badge}</span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }

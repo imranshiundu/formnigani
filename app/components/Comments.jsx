@@ -10,7 +10,7 @@ function avatarOf(u) {
   return AVA(u.ava ?? 12);
 }
 
-export default function CommentSheet({ form, comments, user, onClose, onPost, onUser, onTag }) {
+export default function CommentSheet({ form, comments, user, onClose, onPost, onUser, onTag, hypeOf, onHypeComment }) {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -46,11 +46,21 @@ export default function CommentSheet({ form, comments, user, onClose, onPost, on
         <p>
           <RichText text={c.body} onUser={onUser} onTag={onTag} />
         </p>
-        {!nested && (
-          <button className="creply" onClick={() => { setReplyTo(c); inputRef.current?.focus(); }}>
-            Reply
+        <div className="cacts">
+          <button
+            className={`chipyp ${hypeOf?.(c.id) ? 'on' : ''}`}
+            onClick={() => onHypeComment?.(c.id)}
+            aria-label="Hype comment"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" /><path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".45" /></svg>
+            {hypeOf?.(c.id) || ''}
           </button>
-        )}
+          {!nested && (
+            <button className="creply" onClick={() => { setReplyTo(c); inputRef.current?.focus(); }}>
+              Reply
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

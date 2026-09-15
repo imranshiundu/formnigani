@@ -24,3 +24,5 @@ create policy "own insert statuses" on statuses for insert to authenticated with
 create policy "own delete statuses" on statuses for delete to authenticated using (profile_id = auth.uid());
 
 alter publication supabase_realtime add table statuses;
+alter table statuses add column if not exists img text;
+alter table statuses add column if not exists sticker text;

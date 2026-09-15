@@ -1,13 +1,13 @@
 import './globals.css';
 
 export const metadata = {
-  title: "FormNiGani — Form ni gani?",
+  title: "Form Ni Gani?",
   description: 'Discover real plans happening near you. Live updates, hype, and easy hosting.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'FormNiGani',
+    title: 'Form Ni Gani?',
   },
   icons: {
     icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],

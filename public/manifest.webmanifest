@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "FormNiGani — What's the plan?",
-  "short_name": "FormNiGani",
-  "description": "Discover real plans happening near you. Live updates, hype, and easygoing hosting.",
+  "name": "Form Ni Gani?",
+  "short_name": "Form Ni Gani?",
+  "description": "Form Ni Gani? Discover real plans happening near you.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
