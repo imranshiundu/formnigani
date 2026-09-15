@@ -240,20 +240,9 @@ function Card({ f, saved, hyped, me, cc, latest, top, onOpen, onSave, onHype, on
 
 /* ================= APP ================= */
 export default function App() {
-  const [screen, setScreen] = useState(() => {
-    try {
-      const h = window.location.hash;
-      let m = h.match(/^#\/form\/([\w-]+)/);
-      if (m) return { name: 'form', param: m[1] };
-      m = h.match(/^#\/@([\w]+)/);
-      if (m) return { name: 'profile', param: '@' + m[1].toLowerCase() };
-      // Plain tab hashes are never restored — the app always boots at Discovery.
-      if (/^#\/(home|saved|profile|notifs|map)/.test(h)) {
-        history.replaceState(null, '', window.location.pathname + window.location.search);
-      }
-    } catch {}
-    return { name: 'splash', param: null };
-  });
+  // First render is always splash (server and client agree — no hydration
+  // mismatch). Deep links are applied in a mount effect below.
+  const [screen, setScreen] = useState({ name: 'splash', param: null });
   const [forms, setForms] = useState([]);
   const [meta, setMeta] = useState({ notifs: { up: [], past: [] }, taken: [], tags: [], recents: [] });
   const [feedState, setFeedState] = useState(isConfigured() ? 'loading' : 'error');
@@ -305,7 +294,7 @@ export default function App() {
         else go('home');
       }
     } catch (e) {
-      setEmErr(e.message || 'Could not log in — try again');
+      setEmErr(e.message || 'Could not log in, try again');
     } finally {
       setEmBusy(false);
     }
@@ -369,7 +358,7 @@ export default function App() {
     },
     [showToast]
   );
-  const sharePlan = useCallback((f) => doShare({ title: f.title, text: `${f.title} — only on FormNiGani`, path: `/form/${f.id}` }), [doShare]);
+  const sharePlan = useCallback((f) => doShare({ title: f.title, text: `${f.title}, only on FormNiGani`, path: `/form/${f.id}` }), [doShare]);
   const shareProfile = useCallback(
     (handle, name) => doShare({ title: `${name} on FormNiGani`, text: `Follow ${name} on FormNiGani`, path: `/@${String(handle).replace(/^@/, '')}` }),
     [doShare]
@@ -479,9 +468,34 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [SB, auth.loading, auth.sbUser]);
 
+  /* ----- deep links applied on mount (client only, no hydration mismatch) ----- */
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    try {
+      const h = window.location.hash;
+      let m = h.match(/^#\/form\/([\w-]+)/);
+      if (m) {
+        deepLinked.current = true;
+        setScreen({ name: 'form', param: m[1] });
+        return;
+      }
+      m = h.match(/^#\/@([\w]+)/);
+      if (m) {
+        deepLinked.current = true;
+        setScreen({ name: 'profile', param: '@' + m[1].toLowerCase() });
+        return;
+      }
+      // Plain tab hashes are never restored. The app always boots at Discovery.
+      if (/^#\/(home|saved|profile|notifs|map)/.test(h)) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } catch {}
+  }, []);
+
   /* ----- splash flow ----- */
   useEffect(() => {
     if (screen.name !== 'splash') return;
+    if (deepLinked.current) return;
     const t = setTimeout(() => go(st.ob ? 'home' : 'ob1'), st.ob ? 800 : 1600);
     return () => clearTimeout(t);
   }, [screen.name, st.ob, go]);
@@ -607,15 +621,6 @@ export default function App() {
     };
     img.src = url;
   };
-  const copyLink = async (url) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Link copied to clipboard');
-    } catch {
-      showToast(url);
-    }
-  };
-  const profileUrl = (handle) => `${window.location.origin}/#/@${String(handle || '').replace(/^@/, '')}`;
   const openGate = (fn, reason) => {
     pending.current = fn || null;
     // Already on the auth page? No popup — focus there and let sign-in resume.
@@ -632,7 +637,7 @@ export default function App() {
     try {
       await auth.signInGoogle();
     } catch (e) {
-      showToast('Google sign-in is not enabled yet — use email instead');
+      showToast('Google sign-in is not enabled yet, use email instead');
     }
   };
 
@@ -645,7 +650,7 @@ export default function App() {
       saves: on ? [...s.saves, id] : s.saves.filter((x) => x !== id),
     }));
     showToast(on ? 'Saved' : 'Removed from Saved');
-    if (profId) db.save(id, on, profId).catch(() => showToast('Sync failed — kept on this device'));
+    if (profId) db.save(id, on, profId).catch(() => showToast('Sync failed, kept on this device'));
   };
 
   const tryJoin = (id, el) => {
@@ -660,7 +665,7 @@ export default function App() {
     if (profId) {
       db.join(id, leaving ? 'leave' : 'join', profId)
         .then((going) => setForms((prev) => prev.map((x) => (x.id === id ? { ...x, going } : x))))
-        .catch(() => showToast('Sync failed — kept on this device'));
+        .catch(() => showToast('Sync failed, kept on this device'));
     }
     if (!leaving) {
       showToast("You're in! See you there");
@@ -680,7 +685,7 @@ export default function App() {
     if (profId) {
       db.hype(id, remove ? 'remove' : 'add', profId)
         .then((hype) => setForms((prev) => prev.map((x) => (x.id === id ? { ...x, hype } : x))))
-        .catch(() => showToast('Sync failed — kept on this device'));
+        .catch(() => showToast('Sync failed, kept on this device'));
     }
     if (!remove) {
       showToast('Hyped! The host sees the love');
@@ -734,7 +739,7 @@ export default function App() {
       return;
     }
     if (!profId) {
-      showToast('Syncing your profile — try again in a moment');
+      showToast('Syncing your profile, try again in a moment');
       return;
     }
     try {
@@ -746,7 +751,7 @@ export default function App() {
       });
       mergeComment(c);
     } catch (e) {
-      showToast(e.message || 'Could not post — try again');
+      showToast(e.message || 'Could not post, try again');
     }
   };
 
@@ -770,7 +775,7 @@ export default function App() {
 
   const postStatus = async (payload) => {
     if (!profId) {
-      showToast('Syncing your profile — try again in a moment');
+      showToast('Syncing your profile, try again in a moment');
       return;
     }
     try {
@@ -778,7 +783,7 @@ export default function App() {
       showToast('Status is live');
       loadStatuses();
     } catch (e) {
-      showToast(e.message || 'Could not post — try again');
+      showToast(e.message || 'Could not post, try again');
     }
   };
 
@@ -927,9 +932,9 @@ export default function App() {
     if (!user) return openGate(postForm, 'share a plan');
     const tags = cTags.join(', ');
     const img = cPhoto ? IMGP(cPhoto, 800, 600) : IMGP('fng-default' + (Date.now() % 7), 800, 600);
-    const desc = tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.';
+    const desc = tags ? `Tags: ${tags}. You are hosting this one. Details in the chat.` : 'You are hosting this one. Details in the chat.';
     if (!profId) {
-      showToast('Syncing your profile — try again in a moment');
+      showToast('Syncing your profile, try again in a moment');
       return;
     }
     db.createForm(
@@ -940,7 +945,7 @@ export default function App() {
         setForms((prev) => [f, ...prev]);
         setSt((s) => ({ ...s, joins: [...s.joins, f.id] }));
       })
-      .catch((e) => showToast(e.message || 'Could not publish — try again'));
+      .catch((e) => showToast(e.message || 'Could not publish, try again'));
     setCTitle('');
     setCLoc('');
     setCPhoto(null);
@@ -979,7 +984,7 @@ export default function App() {
         if (fn) fn();
         else go('home');
       } catch (e) {
-        showToast(e.message || 'Could not save — try again');
+        showToast(e.message || 'Could not save, try again');
       }
   };
 
@@ -989,7 +994,7 @@ export default function App() {
       deferred.prompt();
       await deferred.userChoice.catch(() => {});
       setDeferred(null);
-    } else showToast('Open the browser menu > Install / Add to Home Screen');
+    } else showToast('Open the browser menu, then Install or Add to Home Screen');
   };
 
   const on = (id) => id === screen.name || `scr-${screen.name}` === id;
@@ -1100,7 +1105,6 @@ export default function App() {
               <div className="inner">
                 <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
                 <h1>Every day has<br /><em style={{ color: '#F07BE8', fontStyle: 'normal' }}>a plan.</em></h1>
-                <p className="sub">Real people, real plans — happening near you right now.</p>
                 {SB && (
                   <div className="pillrow auth-tabs">
                     <button className={`pill ${emMode === 'up' ? 'on' : ''}`} onClick={() => { setEmMode('up'); setEmErr(''); }}>Sign up</button>
@@ -1128,7 +1132,7 @@ export default function App() {
                   </div>
                 )}
                 <GoogleButton id="auth" onClick={googleGo} />
-                <button className="ghost-link" onClick={() => go('home')}>Just looking around — continue as guest</button>
+                <button className="guest-btn" onClick={() => go('home')}>Continue as guest</button>
               </div>
             </div>
           </section>
@@ -1139,7 +1143,7 @@ export default function App() {
               <button className="iconbtn back" onClick={() => go('auth')} aria-label="Back">{I.back}</button>
               <img className="ava" src="https://i.pravatar.cc/120?img=12" alt="" />
               <h2>Pick your username</h2>
-              <p className="sub">Pick a handle — that&apos;s how people find you.</p>
+              <p className="sub">Pick a handle, that&apos;s how people find you.</p>
               <div className="hcard">
                 <label>Your name</label>
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="off" autoFocus onKeyDown={(e) => { if (e.key === 'Enter' && handleMsg.kind === 'ok') submitHandle(); }} />
@@ -1190,7 +1194,7 @@ export default function App() {
                     if (scr) scr.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 >
-                  <i className="vdot" />{newCount} new plan{newCount === 1 ? '' : 's'} — tap to view
+                  <i className="vdot" />{newCount} new plan{newCount === 1 ? '' : 's'}, tap to view
                 </button>
               )}
               <div className="pillrow page">
@@ -1209,7 +1213,7 @@ export default function App() {
                     <p>Check your connection and try again.</p>
                     <button className="btn-black" onClick={loadFeed}>Retry</button>
                   </div>
-                ) : <p className="empty">No plans match this filter — try &quot;All&quot;.</p>}
+                ) : <p className="empty">No plans match this filter, try &quot;All&quot;.</p>}
               </div>
             </div>
           </section>
@@ -1231,7 +1235,7 @@ export default function App() {
               <div className="cards">
                 {savedList.length ? savedList.map((f) => (
                   <Card key={f.id} f={f} saved hyped={st.hypes.includes(f.id)} me={st.joins.includes(f.id) && user ? user.photo : null} onOpen={(id) => go('form', id)} onSave={trySave} onHype={tryHype} onHost={(h) => go('profile', h)} onShare={sharePlan} cc={ccount(f)} latest={latestComment(f)} onComments={openComments} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
-                )) : <p className="empty">Nothing saved yet — tap the bookmark on any plan to keep it here.</p>}
+                )) : <p className="empty">Nothing saved yet. Tap the bookmark on any plan to keep it here.</p>}
               </div>
             </div>
           </section>
@@ -1269,22 +1273,21 @@ export default function App() {
               {isOwnProfile && user && (
                 <>
                   <div className="prof-top">
-                    <img className="ava" src={user.photo} alt="" />
-                    <div className="nrow">
-                      <h3>{user.name}</h3>
-                      <button className="edit" onClick={openEdit}>Edit</button>
+                    <div className="ava-wrap">
+                      <img className="ava" src={user.photo} alt="" />
+                      <button className="pen" onClick={openEdit} aria-label="Edit profile">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                      </button>
                     </div>
+                    <div className="nrow"><h3>{user.name}</h3></div>
                     <div className="hdl">{user.handle}</div>
-                    {auth.profile?.bio ? <p className="prof-bio">{auth.profile.bio}</p> : null}
-                  </div>
-                  <div className="link-row">
-                    <span>{typeof window !== 'undefined' ? window.location.host : 'formnigani.com'}/@{String(user.handle || '').replace(/^@/, '')}</span>
-                    <button onClick={() => copyLink(profileUrl(user.handle))}>Copy</button>
-                  </div>
-                  <div className="editrow" onClick={openEdit}>
-                    <span>Edit profile</span>
-                    <span className="editrow-sub">Photo, name, bio, handle, vibes</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+                    {auth.profile?.bio ? (
+                      <p className="prof-bio">{auth.profile.bio}</p>
+                    ) : (
+                      <button className="prof-bio placeholder" onClick={openEdit}>
+                        Type anything about yourself...
+                      </button>
+                    )}
                   </div>
                   <ProfileEvents
                     tab={profTab}
@@ -1306,7 +1309,9 @@ export default function App() {
               {!isOwnProfile && pubHost && (
                 <>
                   <div className="prof-top">
-                    <img className="ava" src={hostPhoto(pubHost)} alt="" />
+                    <div className="ava-wrap">
+                      <img className="ava" src={hostPhoto(pubHost)} alt="" />
+                    </div>
                     <div className="nrow"><h3>{pubHost.name}</h3></div>
                     <div className="hdl">{pubHost.handle}</div>
                     {pubBio ? <p className="prof-bio">{pubBio}</p> : null}
@@ -1373,7 +1378,7 @@ export default function App() {
                 </span>
               </div>
               <div className="sheet">
-                <h2>{cur?.title || '—'}</h2>
+                <h2>{cur?.title || ''}</h2>
                 {cur?.host && (
                   <div className="hostline big" onClick={() => go('profile', cur.host.handle)}>
                     <img src={hostPhoto(cur.host)} alt="" />
@@ -1396,8 +1401,8 @@ export default function App() {
                   <span>{cur ? `${cur.going} already here` : ''}</span>
                 </div>
                 <div className="meta">
-                  <div>{I.pin}<span>{cur ? `${cur.km} km away` : '—'}</span></div>
-                  <div>{I.clock}<span>{cur?.ends || '—'}</span></div>
+                  <div>{I.pin}<span>{cur ? `${cur.km} km away` : ''}</span></div>
+                  <div>{I.clock}<span>{cur?.ends || ''}</span></div>
                 </div>
                 <hr />
                 {cur?.desc && (
@@ -1452,7 +1457,7 @@ export default function App() {
               <label className="flabel">What&apos;s the plan?</label>
               <input className="input" value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="Rooftop hang, bring snacks..." autoComplete="off" />
               <label className="flabel">Where?</label>
-              <input className="input" value={cLoc} onChange={(e) => setCLoc(e.target.value)} placeholder="Location — e.g. Kileleshwa, rooftop" autoComplete="off" />
+              <input className="input" value={cLoc} onChange={(e) => setCLoc(e.target.value)} placeholder="Location, e.g. Kileleshwa rooftop" autoComplete="off" />
               <div className="checkrow">
                 {['Right now', 'Later today'].map((label, i) => (
                   <label key={label} className="check">
@@ -1544,13 +1549,13 @@ export default function App() {
                     <img src={hostPhoto(h)} alt="" />
                     <div><b>{h.name}</b><span>{h.handle}</span></div>
                   </div>
-                )) : <p className="empty">No people found — try another name.</p>
+                )) : <p className="empty">No people found, try another name.</p>
               ) : searchRes.length ? searchRes.map((f) => (
                 <div key={f.id} className="res-row" onClick={() => { setSearchOpen(false); go('form', f.id); }}>
                   <img src={f.img} alt="" />
                   <div><b>{f.title}</b><span>{f.area} · {f.km} km · {f.live ? 'LIVE' : f.startsShort}</span></div>
                 </div>
-              )) : <p className="empty">No matches — try &quot;rooftop&quot; or &quot;karaoke&quot;.</p>}
+              )) : <p className="empty">No matches, try &quot;rooftop&quot; or &quot;karaoke&quot;.</p>}
             </div>
           </div>
         )}
@@ -1566,7 +1571,7 @@ export default function App() {
               <h3>You need an account for that</h3>
               <p className="psub">
                 {gateReason
-                  ? `Sign in to ${gateReason} — takes a few seconds.`
+                  ? `Sign in to ${gateReason}, it takes a few seconds.`
                   : 'Sign in to join plans, hype, comment, and save your favourites.'}
               </p>
               <button className="btn-black" onClick={() => { setGate(false); go('auth', 'up'); }}>Sign up</button>
@@ -1655,10 +1660,6 @@ export default function App() {
                 const v = e.target.value.trim();
                 setSt((s) => ({ ...s, user: { ...s.user, handle: v.startsWith('@') ? v : '@' + v } }));
               }} />
-              <div className="link-row">
-                <span>{typeof window !== 'undefined' ? window.location.host : 'formnigani.com'}/@{String(user.handle || '').replace(/^@/, '')}</span>
-                <button onClick={() => copyLink(profileUrl(user.handle))}>Copy</button>
-              </div>
               <button className="btn-black" style={{ width: '100%', marginTop: 22 }} onClick={async () => {
                 if (SB && auth.sbUser) {
                   try {
@@ -1672,7 +1673,7 @@ export default function App() {
                     setEdit(false);
                     showToast('Profile saved');
                   } catch (e) {
-                    showToast(e.message || 'Could not save — try again');
+                    showToast(e.message || 'Could not save, try again');
                   }
                   return;
                 }
@@ -1744,10 +1745,10 @@ export default function App() {
         )}
 
         {toast && <div className="toast on">{toast.msg}</div>}
-        {offline && <div className="offline-bar on">You&apos;re offline — saved plans still work</div>}
+        {offline && <div className="offline-bar on">You&apos;re offline. Saved plans still work</div>}
         <div className="hi" />
       </div>
-      <div className="stage-cap"><b>FormNiGani</b> — find your plan · live</div>
+      <div className="stage-cap"><b>FormNiGani</b> · find your plan</div>
     </div>
   );
 }
@@ -1773,7 +1774,7 @@ function ProfileEvents({ tab, onTab, events, state, onOpen, st }) {
           </>
         )}
         {state !== 'loading' && list.length === 0 && (
-          <p className="empty">{tab === 'hosted' ? 'No plans hosted yet.' : 'No events attended yet — join one from the feed.'}</p>
+          <p className="empty">{tab === 'hosted' ? 'No plans hosted yet.' : 'No events attended yet. Join one from the feed.'}</p>
         )}
         {list.map((f) => {
           const isHosted = tab === 'hosted';

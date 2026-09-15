@@ -20,7 +20,7 @@
         15,
         32
       ],
-      "desc": "Speakers, city views, and whoever shows up. No dress code, no fixed plan — just come through. Bring your own snacks, we will handle the fire.",
+      "desc": "Speakers, city views, and whoever shows up. No dress code, no fixed plan, just come through. Bring your own snacks, we will handle the fire.",
       "host": {
         "name": "Nia",
         "handle": "@nia",
@@ -54,7 +54,7 @@
         44,
         12
       ],
-      "desc": "Sunset, good music, cold drinks. We are meeting at 6pm — everyone is welcome. Entry is free, just bring good vibes.",
+      "desc": "Sunset, good music, cold drinks. We are meeting at 6pm, everyone is welcome. Entry is free, just bring good vibes.",
       "host": {
         "name": "Kevin",
         "handle": "@kev",
@@ -70,7 +70,7 @@
     },
     {
       "id": "f3",
-      "title": "5-a-side pickup — Go Down",
+      "title": "5-a-side pickup, Go Down",
       "area": "Industrial Area",
       "seed": "fng-football",
       "live": false,
@@ -88,7 +88,7 @@
         52,
         16
       ],
-      "desc": "The pitch is booked. Bring boots and water — we will sort teams on site. Ball provided.",
+      "desc": "The pitch is booked. Bring boots and water, we will sort teams on site. Ball provided.",
       "host": {
         "name": "Dennis",
         "handle": "@dennis",
@@ -137,7 +137,7 @@
     },
     {
       "id": "f5",
-      "title": "Karaoke night — Kile",
+      "title": "Karaoke night, Kile",
       "area": "Kileleshwa",
       "seed": "fng-karaoke",
       "live": false,
@@ -155,7 +155,7 @@
         28,
         36
       ],
-      "desc": "The mic is open and the crowd is warm. Come sing or come laugh — either way it is a great night.",
+      "desc": "The mic is open and the crowd is warm. Come sing or come laugh, either way it is a great night.",
       "host": {
         "name": "Sharon",
         "handle": "@sharon",
@@ -171,7 +171,7 @@
     },
     {
       "id": "f6",
-      "title": "Sunrise hike — Ngong Hills",
+      "title": "Sunrise hike, Ngong Hills",
       "area": "Ngong",
       "seed": "fng-hike",
       "live": false,
@@ -189,7 +189,7 @@
         40,
         23
       ],
-      "desc": "We leave the CBD at 5am sharp. Bring water, a jacket, and stamina — the views at the top are worth it. KES 500 covers transport.",
+      "desc": "We leave the CBD at 5am sharp. Bring water, a jacket, and stamina, the views at the top are worth it. KES 500 covers transport.",
       "host": {
         "name": "Mike",
         "handle": "@mike",
@@ -212,19 +212,19 @@
         "id": "f1"
       },
       {
-        "t": "Sunday pickup run — Karura",
+        "t": "Sunday pickup run, Karura",
         "seed": "fng-run",
         "s": "Starts in 1h 05m",
         "id": "f3"
       },
       {
-        "t": "Rooftop movie night — Kile",
+        "t": "Rooftop movie night, Kile",
         "seed": "fng-movie",
         "s": "Starts tomorrow",
         "id": "f2"
       },
       {
-        "t": "Karaoke night — Haveli",
+        "t": "Karaoke night, Haveli",
         "seed": "fng-karaoke",
         "s": "Starts in 2h 15m",
         "id": "f5"
@@ -238,7 +238,7 @@
         "id": "f4"
       },
       {
-        "t": "Sunrise hike — Ngong",
+        "t": "Sunrise hike, Ngong",
         "seed": "fng-hike",
         "s": "Ended Saturday",
         "id": "f6"
@@ -294,7 +294,7 @@
         "handle": "@nia",
         "ava": 47
       },
-      "body": "We have spares — just come through",
+      "body": "We have spares, just come through",
       "minAgo": 80,
       "parentId": "c1"
     },
@@ -330,7 +330,7 @@
         "handle": "@kev",
         "ava": 33
       },
-      "body": "@sharon Pin drops after you are in — entrance is on the Kileleshwa side",
+      "body": "@sharon Pin drops after you are in, entrance is on the Kileleshwa side",
       "minAgo": 32,
       "parentId": "c4"
     },
