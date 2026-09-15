@@ -1156,7 +1156,13 @@ export default function App() {
             <div className="scr splash-scr">
               <ThreeHero className="splash-three" />
               <div className="logo-lock">
-                <svg viewBox="0 0 48 48" fill="none"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor" /><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#A21CAF" strokeWidth="2.7" strokeLinecap="round" /><circle cx="24.6" cy="28.9" r="1.6" fill="#A21CAF" /></svg>
+                <svg viewBox="0 0 48 48">
+                  <rect width="48" height="48" rx="14" fill="#7C3AED" />
+                  <g transform="translate(12,8)" fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" fill="#fff" stroke="none" />
+                    <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".5" fill="#fff" stroke="none" />
+                  </g>
+                </svg>
                 <b>Form Ni Gani?</b>
               </div>
             </div>
@@ -2094,9 +2100,26 @@ function ProfileEvents({ tab, onTab, events, state, onOpen, onHost, st, user, ca
   );
 }
 
-function BrandMark() {
+function BrandMark({ light = false }) {
+  if (light) {
+    return (
+      <svg viewBox="0 0 48 48">
+        <rect width="48" height="48" rx="14" fill="#7C3AED" />
+        <g transform="translate(12,8) scale(1)" fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" fill="#fff" stroke="none" />
+          <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".5" fill="#fff" stroke="none" />
+        </g>
+      </svg>
+    );
+  }
   return (
-    <svg viewBox="0 0 48 48"><path d="M24 5c10.5 0 19 7.3 19 16.4S34.5 38 24 38c-2.6 0-5.1-.4-7.4-1.2L8.2 40.4l3.1-7.7C7.5 29.5 5 25.8 5 21.4 5 12.3 13.5 5 24 5z" fill="currentColor" /><path d="M20.6 17.4c.4-2.1 2-3.5 4.1-3.5 2.4 0 4.1 1.5 4.1 3.6 0 1.7-.9 2.5-2.1 3.2-1.2.8-1.9 1.5-1.9 2.9v.7" stroke="#fff" strokeWidth="2.7" strokeLinecap="round" /><circle cx="24.6" cy="28.9" r="1.6" fill="#fff" /></svg>
+    <svg viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="14" fill="#7C3AED" />
+      <g transform="translate(12,8)" fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" fill="#fff" stroke="none" />
+        <path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".5" fill="#fff" stroke="none" />
+      </g>
+    </svg>
   );
 }
 
