@@ -80,9 +80,17 @@ export function AuthProvider({ children }) {
     setProfile(data);
     return data;
   };
+  const changePassword = async (newPassword) => {
+    const { error } = await getBrowser().auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  };
+  const changeEmail = async (newEmail) => {
+    const { error } = await getBrowser().auth.updateUser({ email: newEmail });
+    if (error) throw error;
+  };
 
   return (
-    <Ctx.Provider value={{ active: USE_SUPABASE, sbUser, profile, loading, signUpEmail, signInEmail, signInGoogle, signOut, refreshProfile, saveProfile }}>
+    <Ctx.Provider value={{ active: USE_SUPABASE, sbUser, profile, loading, signUpEmail, signInEmail, signInGoogle, signOut, refreshProfile, saveProfile, changePassword, changeEmail }}>
       {children}
     </Ctx.Provider>
   );

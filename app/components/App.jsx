@@ -269,6 +269,7 @@ export default function App() {
   const [name, setName] = useState('');
   const [cTitle, setCTitle] = useState('');
   const [cLoc, setCLoc] = useState('');
+  const [cMap, setCMap] = useState('');
   const [cPhoto, setCPhoto] = useState(null);
   const [cTags, setCTags] = useState(['Rooftop']);
   const [em, setEm] = useState('');
@@ -318,6 +319,11 @@ export default function App() {
   const [conversations, setConversations] = useState([]);
   const [threadMsgs, setThreadMsgs] = useState([]);
   const [chatUnread, setChatUnread] = useState(0);
+  const [theme, setTheme] = useState('light');
+  const [acct, setAcct] = useState(false);
+  const [pwCur, setPwCur] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [emNew, setEmNew] = useState('');
   const [pubProfile, setPubProfile] = useState(null);
   const [sheet, setSheet] = useState(null); // formId with open comment sheet
   const [profSheet, setProfSheet] = useState(null); // handle with open profile sheet
@@ -377,6 +383,18 @@ export default function App() {
   useEffect(() => {
     persistState(st);
   }, [st]);
+
+  /* ----- theme (dark / light) ----- */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fng_theme');
+      if (saved === 'dark' || saved === 'light') setTheme(saved);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try { localStorage.setItem('fng_theme', theme); } catch {}
+  }, [theme]);
 
   /* ----- backend feed (Supabase is the only source — no fallback) ----- */
   const loadFeed = useCallback(() => {
@@ -805,8 +823,14 @@ export default function App() {
       }
     }
   };
+  const hypeLock = useRef({});
   const tryHype = (id, el) => {
     if (!user) return openGate(() => tryHype(id, null), 'hype this plan');
+    // One toggle per tap: rapid/double taps inside the lock window are ignored
+    // so the count can never jump twice.
+    const now = Date.now();
+    if (hypeLock.current[id] && now - hypeLock.current[id] < 700) return;
+    hypeLock.current[id] = now;
     doHype(id, el, st.hypes.includes(id));
   };
 
@@ -1061,7 +1085,7 @@ export default function App() {
       return;
     }
     db.createForm(
-      { title, area: cLoc.trim() || 'Near you', desc, img },
+      { title, area: cLoc.trim() || 'Near you', desc, img, mapLink: cMap.trim() || null },
       { id: profId, name: user.name, handle: user.handle, avatar_url: user.photo.startsWith('data:') ? null : user.photo }
     )
       .then((f) => {
@@ -1071,6 +1095,7 @@ export default function App() {
       .catch((e) => showToast(e.message || 'Could not publish, try again'));
     setCTitle('');
     setCLoc('');
+    setCMap('');
     setCPhoto(null);
     setCTags(['Rooftop']);
     go('home');
@@ -1551,6 +1576,17 @@ export default function App() {
                   <div>{I.pin}<span>{cur ? `${cur.km} km away` : ''}</span></div>
                   <div>{I.clock}<span>{cur?.ends || ''}</span></div>
                 </div>
+                <button
+                  className="dirbtn"
+                  onClick={() => {
+                    const q = cur ? `${cur.title} ${cur.area}` : '';
+                    window.open(cur?.mapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`, '_blank', 'noopener');
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+                  Directions
+                  {cur?.mapLink ? <span className="dir-note">exact pin</span> : <span className="dir-note">approximate</span>}
+                </button>
                 <hr />
                 {cur?.desc && (
                   <DescBlock text={cur.desc} onUser={(h) => setProfSheet(h)} onTag={(t) => { setSearchQ('#' + t); setSearchOpen(true); }} />
@@ -1636,6 +1672,8 @@ export default function App() {
               <input className="input" value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="Rooftop hang, bring snacks..." autoComplete="off" />
               <label className="flabel">Where?</label>
               <input className="input" value={cLoc} onChange={(e) => setCLoc(e.target.value)} placeholder="Location, e.g. Kileleshwa rooftop" autoComplete="off" />
+              <label className="flabel">Map link (optional)</label>
+              <input className="input" value={cMap} onChange={(e) => setCMap(e.target.value)} placeholder="Paste a Google Maps link for directions" inputMode="url" />
               <div className="checkrow">
                 {['Right now', 'Later today'].map((label, i) => (
                   <label key={label} className="check">
@@ -1805,12 +1843,26 @@ export default function App() {
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
                 Edit profile<span className="spacer" />
               </div>
+              <div className="setrow">
+                Theme<span className="spacer" />
+                <div className="themeseg">
+                  <button className={`tseg ${theme === 'light' ? 'on' : ''}`} onClick={() => setTheme('light')}>Light</button>
+                  <button className={`tseg ${theme === 'dark' ? 'on' : ''}`} onClick={() => setTheme('dark')}>Dark</button>
+                </div>
+              </div>
               <div className="setrow" onClick={() => {
                 setNotifOn((v) => !v);
                 showToast(notifOn ? 'Notifications off' : 'Notifications on');
               }}>
                 Notifications<span className="spacer" /><span className={`switch ${notifOn ? 'on' : ''}`} />
               </div>
+              {SB && user && (
+                <div className="setrow" onClick={() => { setSettings(false); setAcct(true); }}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                  Account & security<span className="spacer" />
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+                </div>
+              )}
               <div className="setrow" onClick={installApp}>
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg>
                 <span>Install App</span><span className="spacer" />
@@ -1827,6 +1879,44 @@ export default function App() {
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>
                 Log out
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ACCOUNT & SECURITY */}
+        {acct && user && (
+          <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) setAcct(false); }}>
+            <div className="panel">
+              <div className="grab" />
+              <h3>Account & security</h3>
+              <p className="psub">{user.name} · {user.handle}</p>
+              <label className="flabel" style={{ marginTop: 0 }}>Change password</label>
+              <input className="input" type="password" value={pwCur} onChange={(e) => setPwCur(e.target.value)} placeholder="Current password" autoComplete="current-password" />
+              <input className="input" type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)} placeholder="New password (6+ characters)" autoComplete="new-password" style={{ marginTop: 10 }} />
+              <button className="btn-black" style={{ width: '100%', marginTop: 12 }} onClick={async () => {
+                try {
+                  await auth.changePassword(pwNew);
+                  setPwCur(''); setPwNew('');
+                  showToast('Password changed');
+                  setAcct(false);
+                } catch (e) {
+                  showToast(e.message || 'Could not change password');
+                }
+              }} disabled={pwNew.length < 6}>Update password</button>
+              <label className="flabel" style={{ marginTop: 18 }}>Change email</label>
+              <input className="input" value={emNew} onChange={(e) => setEmNew(e.target.value)} placeholder={auth.sbUser?.email || 'New email'} inputMode="email" />
+              <button className="btn-black" style={{ width: '100%', marginTop: 12 }} onClick={async () => {
+                if (!emNew.includes('@')) { showToast('Enter a valid email'); return; }
+                try {
+                  await auth.changeEmail(emNew.trim());
+                  setEmNew('');
+                  showToast('Check your inbox to confirm the new email');
+                  setAcct(false);
+                } catch (e) {
+                  showToast(e.message || 'Could not change email');
+                }
+              }}>Update email</button>
+              <p className="acct-note">Signed in as {auth.sbUser?.email}</p>
             </div>
           </div>
         )}
