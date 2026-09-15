@@ -289,7 +289,13 @@ export default function App() {
     try {
       if (emMode === 'up') {
         const { session } = await auth.signUpEmail(em.trim(), emPw, name || 'Someone');
-        if (!session) setEmErr('Check your email to confirm, then log in.');
+        if (session) {
+          showToast('Account created! Now pick your username.');
+          setName(name.trim() || 'Someone');
+          go('handle');
+        } else {
+          setEmErr('Check your email to confirm your account, then log in.');
+        }
       } else {
         await auth.signInEmail(em.trim(), emPw);
         const fn = pending.current;
@@ -820,6 +826,7 @@ export default function App() {
   const googleGo = async () => {
     try {
       await auth.signInGoogle();
+      showToast('Signed in with Google');
     } catch (e) {
       showToast('Google sign-in is not enabled yet, use email instead');
     }
@@ -1345,19 +1352,27 @@ export default function App() {
 
           {/* HANDLE */}
           <section className={`screen s-handle ${on('handle') ? 'on' : ''}`}>
-            <div className="scr">
-              <button className="iconbtn back" onClick={() => go('auth')} aria-label="Back">{I.back}</button>
-              <img className="ava" src="https://i.pravatar.cc/120?img=12" alt="" />
-              <h2>Pick your username</h2>
-              <p className="sub">Pick a handle, that&apos;s how people find you.</p>
+            <div className="scr handle-scr">
+              <div className="handle-top">
+                <div className="handle-check">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                </div>
+                <h2>What&apos;s your handle?</h2>
+                <p className="sub">This is how people find and tag you on Form Ni Gani?</p>
+              </div>
               <div className="hcard">
                 <label>Your name</label>
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="off" autoFocus onKeyDown={(e) => { if (e.key === 'Enter' && handleMsg.kind === 'ok') submitHandle(); }} />
-                <label>Your handle</label>
-                <input className="input" value={handle} onChange={(e) => onHandleInput(e.target.value)} placeholder="@nightowl" autoComplete="off" spellCheck="false" onKeyDown={(e) => { if (e.key === 'Enter' && handleMsg.kind === 'ok') submitHandle(); }} />
+                <label>Choose a handle</label>
+                <div className="handle-input-wrap">
+                  <span className="handle-at">@</span>
+                  <input className="handle-input" value={handle.replace(/^@/, '')} onChange={(e) => onHandleInput(e.target.value)} placeholder="nightowl" autoComplete="off" spellCheck="false" onKeyDown={(e) => { if (e.key === 'Enter' && handleMsg.kind === 'ok') submitHandle(); }} />
+                </div>
                 <div className={`hmsg ${handleMsg.kind}`}>{handleMsg.text}</div>
               </div>
-              <button className="btn-black" disabled={handleMsg.kind !== 'ok'} onClick={submitHandle}>Continue</button>
+              <button className="btn-black" disabled={handleMsg.kind !== 'ok'} onClick={submitHandle}>
+                {handleMsg.kind === 'ok' ? "Let's go!" : 'Continue'}
+              </button>
               <div className="hnote">You can change this later in settings.</div>
             </div>
           </section>
