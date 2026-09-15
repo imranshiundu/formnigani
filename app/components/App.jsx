@@ -616,6 +616,9 @@ export default function App() {
 
   /* ----- PWA + online + auto-update ----- */
   const [updateReady, setUpdateReady] = useState(false);
+  const [pullRefresh, setPullRefresh] = useState(false);
+  const pullStart = useRef(0);
+  const pullDist = useRef(0);
   useEffect(() => {
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', () => {
@@ -648,6 +651,33 @@ export default function App() {
       window.removeEventListener('beforeinstallprompt', bip);
     };
   }, [showToast]);
+
+  /* ----- pull-to-refresh on home screen ----- */
+  const onPullStart = useCallback((e) => {
+    const scr = e.currentTarget;
+    if (scr.scrollTop <= 0) pullStart.current = e.touches[0].clientY;
+  }, []);
+  const onPullMove = useCallback((e) => {
+    if (!pullStart.current) return;
+    pullDist.current = e.touches[0].clientY - pullStart.current;
+    if (pullDist.current > 60) setPullRefresh(true);
+  }, []);
+  const onPullEnd = useCallback(() => {
+    if (pullRefresh) {
+      loadFeed();
+      loadStatuses();
+      showToast('Refreshing...');
+      setTimeout(() => setPullRefresh(false), 800);
+    }
+    pullStart.current = 0;
+    pullDist.current = 0;
+  }, [pullRefresh, loadFeed, loadStatuses, showToast]);
+
+  const refreshAll = useCallback(() => {
+    loadFeed();
+    loadStatuses();
+    showToast('Refreshed');
+  }, [loadFeed, loadStatuses, showToast]);
 
   /* ----- scroll reveal: IntersectionObserver for card entrance animations ----- */
   useEffect(() => {
@@ -1324,9 +1354,10 @@ export default function App() {
 
           {/* HOME */}
           <section className={`screen s-home ${on('home') ? 'on' : ''}`}>
-            <div className="scr">
+            <div className="scr" onPointerDown={onPullStart} onPointerMove={onPullMove} onPointerUp={onPullEnd}>
+              {pullRefresh && <div className="pull-indicator"><div className="pull-spinner" /> Refreshing...</div>}
               <div className="pagehead">
-                <div>
+                <div onClick={refreshAll} style={{ cursor: 'pointer' }}>
                   <h1>{I.flame} Form ni gani? <LiveDot status={liveStatus} /></h1>
                 </div>
                 <div className="acts">
@@ -1476,44 +1507,42 @@ export default function App() {
               )}
               {!isOwnProfile && pubHost && (
                 <>
-                  <div className="prof-top">
-                    <div className="ava-wrap">
-                      <img className="ava" src={hostPhoto(pubHost)} alt="" />
+                  <div className="prof-hero">
+                    <img className="prof-hero-ava" src={hostPhoto(pubHost)} alt="" />
+                    <div className="prof-hero-name">{pubHost.name}</div>
+                    <div className="prof-hero-handle">{pubHost.handle}</div>
+                    {pubBio && <p className="prof-hero-bio">{pubBio}</p>}
+                    <div className="prof-hero-stats">
+                      <div className="prof-hero-stat"><b>{profEvents.hosted.length}</b><span>Hosted</span></div>
+                      <div className="prof-hero-stat"><b>{profEvents.attended.length}</b><span>Attended</span></div>
                     </div>
-                    <div className="nrow"><h3>{pubHost.name}</h3></div>
-                    <div className="hdl">{pubHost.handle}</div>
-                    {pubBio ? <p className="prof-bio">{pubBio}</p> : null}
+                    <div className="prof-actions">
+                      <button className="btn-outline" onClick={() => {
+                        if (!profId || !pubProfile?.id) { showToast('Syncing profiles, try again in a moment'); return; }
+                        go('chat');
+                        openThread(pubProfile.id);
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:'middle',marginRight:4}}><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>
+                        Message
+                      </button>
+                      <button className="btn-outline" onClick={() => shareProfile(pubHost.handle, pubHost.name)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:'middle',marginRight:4}}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4" /></svg>
+                        Share
+                      </button>
+                    </div>
                   </div>
-                  <div className="pub-cta">
-                    <button className="hype-btn" onClick={() => {
-                      if (!profId || !pubProfile?.id) { showToast('Syncing profiles, try again in a moment'); return; }
-                      openThread(pubProfile.id);
-                      setChatsOpen(true);
-                    }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>
-                      Message
-                    </button>
+                  <div className="prof-body">
+                    <ProfileEvents
+                      tab={profTab}
+                      onTab={setProfTab}
+                      events={profEvents}
+                      state={profEventsState}
+                      onOpen={(id) => go('form', id)}
+                      st={st}
+                      user={user}
+                      cards
+                    />
                   </div>
-                  <div className="pub-cta">
-                    <button className="hype-btn" onClick={() => {
-                      if (!profId || !pubProfile?.id) { showToast('Syncing profiles, try again in a moment'); return; }
-                      openThread(pubProfile.id);
-                      setChatsOpen(true);
-                    }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>
-                      Message
-                    </button>
-                  </div>
-                  <ProfileEvents
-                    tab={profTab}
-                    onTab={setProfTab}
-                    events={profEvents}
-                    state={profEventsState}
-                    onOpen={(id) => go('form', id)}
-                    st={st}
-                    user={user}
-                    cards
-                  />
                 </>
               )}
             </div>
@@ -2081,11 +2110,6 @@ function ProfileEvents({ tab, onTab, events, state, onOpen, onHost, st, user, ca
   const list = tab === 'hosted' ? hosted : events.attended;
   return (
     <>
-      <div className="stats">
-        <div className="stat"><b>{events.hosted.length}</b><span>Hosted</span></div>
-        <div className="stat"><b>{events.attended.length}</b><span>Attended</span></div>
-        <div className="stat"><b>{fmt(events.hosted.reduce((a, f) => a + (f.hype || 0), 0))}</b><span>Hype</span></div>
-      </div>
       <div className="ptabs">
         <button className={`ptab ${tab === 'attended' ? 'on' : ''}`} onClick={() => onTab('attended')}>Attended</button>
         <button className={`ptab ${tab === 'hosted' ? 'on' : ''}`} onClick={() => onTab('hosted')}>Hosted</button>
