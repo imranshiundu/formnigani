@@ -254,6 +254,7 @@ export default function App() {
   const [nTab, setNTab] = useState('up');
   const [lastTab, setLastTab] = useState('home');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTab, setSearchTab] = useState('events');
   const [searchQ, setSearchQ] = useState('');
   const [gate, setGate] = useState(false);
   const [gateReason, setGateReason] = useState('');
@@ -1016,9 +1017,8 @@ export default function App() {
     );
   }, [forms, searchQ]);
   const searchPeople = useMemo(() => {
-    const raw = searchQ.trim().toLowerCase();
-    if (!raw.startsWith('@')) return null;
-    const q = raw.slice(1);
+    const q = searchQ.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
     const seen = new Map();
     forms.forEach((f) => {
       if (f.host) seen.set(f.host.handle.toLowerCase(), f.host);
@@ -1026,6 +1026,16 @@ export default function App() {
     return [...seen.values()].filter(
       (h) => h.handle.toLowerCase().includes(q) || h.name.toLowerCase().includes(q)
     );
+  }, [forms, searchQ]);
+
+  const searchLocations = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    const areas = new Map();
+    forms.forEach((f) => {
+      if (f.area && f.area.toLowerCase().includes(q)) areas.set(f.area, f);
+    });
+    return [...areas.entries()].map(([area, f]) => ({ area, count: forms.filter((x) => x.area === area).length, sample: f }));
   }, [forms, searchQ]);
   const sheetForm = sheet ? forms.find((f) => f.id === sheet) : null;
 
@@ -1678,15 +1688,15 @@ export default function App() {
                     )}
                   </div>
                 )}
+                {cur && !cur.live && (
+                  <button className={`hype-btn full ${st.hypes.includes(cur.id) ? 'on' : ''}`} onClick={(e) => tryHype(cur.id, e.currentTarget)}>
+                    {I.flame}<b>{fmt(cur.hype)}</b>&nbsp;hype this plan
+                  </button>
+                )}
                 <div className="crow-entry" onClick={() => cur && openComments(cur.id)}>
                   <span>Comments ({cur ? ccount(cur) : 0})</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
                 </div>
-                {cur && !cur.live && (
-                  <button className={`hype-btn ${st.hypes.includes(cur.id) ? 'on' : ''}`} onClick={(e) => tryHype(cur.id, e.currentTarget)} style={{ marginTop: 14 }}>
-                    {I.flame}<b>{fmt(cur.hype)}</b>&nbsp;hype this plan
-                  </button>
-                )}
               </div>
               <div className="form-actions">
                 <button className="btn-ghost" onClick={() => go(lastTab || 'home')}>Can&apos;t make it</button>
@@ -1811,28 +1821,55 @@ export default function App() {
         {searchOpen && (
           <div className="search-ov on">
             <div className="so-head">
-              <input className="input" value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Search Forms, spots, tags" autoComplete="off" autoFocus />
-              <button className="iconbtn" aria-label="Close" onClick={() => setSearchOpen(false)}>{I.close}</button>
+              <div className="so-input-wrap">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg>
+                <input className="so-input" value={searchQ} onChange={(e) => { setSearchQ(e.target.value); setSearchTab('events'); }} placeholder="Search events, people, or places" autoComplete="off" autoFocus />
+                {searchQ && <button className="so-clear" onClick={() => setSearchQ('')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg></button>}
+              </div>
+              <button className="iconbtn" aria-label="Close" onClick={() => { setSearchOpen(false); setSearchQ(''); }}>{I.close}</button>
             </div>
-            <div className="recent">
-              {(meta.recents || []).map((r) => (
-                <span key={r} className="pill" onClick={() => setSearchQ(r)}>{r}</span>
-              ))}
-            </div>
+            {!searchQ && (
+              <div className="recent">
+                {(meta.recents || []).map((r) => (
+                  <span key={r} className="pill" onClick={() => setSearchQ(r)}>{r}</span>
+                ))}
+              </div>
+            )}
+            {searchQ && (
+              <div className="so-tabs">
+                <button className={`so-tab ${searchTab === 'events' ? 'on' : ''}`} onClick={() => setSearchTab('events')}>Events{searchRes.length > 0 ? ` (${searchRes.length})` : ''}</button>
+                <button className={`so-tab ${searchTab === 'people' ? 'on' : ''}`} onClick={() => setSearchTab('people')}>People{searchPeople.length > 0 ? ` (${searchPeople.length})` : ''}</button>
+                <button className={`so-tab ${searchTab === 'places' ? 'on' : ''}`} onClick={() => setSearchTab('places')}>Places{searchLocations.length > 0 ? ` (${searchLocations.length})` : ''}</button>
+              </div>
+            )}
             <div className="so-res">
-              {searchPeople ? (
+              {searchTab === 'events' && (
+                searchRes.length ? searchRes.map((f) => (
+                  <div key={f.id} className="res-row" onClick={() => { setSearchOpen(false); go('form', f.id); }}>
+                    <img src={f.img} alt="" />
+                    <div>
+                      <b>{f.title}</b>
+                      <span>{f.area} · {f.km} km · {f.live ? <><i className="dot" />LIVE</> : f.startsShort}</span>
+                    </div>
+                  </div>
+                )) : <p className="empty">No events matching &quot;{searchQ}&quot;</p>
+              )}
+              {searchTab === 'people' && (
                 searchPeople.length ? searchPeople.map((h) => (
                   <div key={h.handle} className="res-row" onClick={() => { setSearchOpen(false); setProfSheet(h.handle); }}>
                     <img src={hostPhoto(h)} alt="" />
                     <div><b>{h.name}</b><span>{h.handle}</span></div>
                   </div>
-                )) : <p className="empty">No people found, try another name.</p>
-              ) : searchRes.length ? searchRes.map((f) => (
-                <div key={f.id} className="res-row" onClick={() => { setSearchOpen(false); go('form', f.id); }}>
-                  <img src={f.img} alt="" />
-                  <div><b>{f.title}</b><span>{f.area} · {f.km} km · {f.live ? 'LIVE' : f.startsShort}</span></div>
-                </div>
-              )) : <p className="empty">No matches, try &quot;rooftop&quot; or &quot;karaoke&quot;.</p>}
+                )) : <p className="empty">No people matching &quot;{searchQ}&quot;</p>
+              )}
+              {searchTab === 'places' && (
+                searchLocations.length ? searchLocations.map(([area, info]) => (
+                  <div key={area} className="res-row" onClick={() => { setSearchQ(area); setSearchTab('events'); }}>
+                    <div className="res-loc-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg></div>
+                    <div><b>{area}</b><span>{info.count} event{info.count !== 1 ? 's' : ''}</span></div>
+                  </div>
+                )) : <p className="empty">No places matching &quot;{searchQ}&quot;</p>
+              )}
             </div>
           </div>
         )}
