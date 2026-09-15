@@ -23,27 +23,5 @@
         }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "formnigani.co.ke"
-        }
-      ],
-      "destination": "/landing.html"
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.formnigani.co.ke"
-        }
-      ],
-      "destination": "/landing.html"
-    }
   ]
 }

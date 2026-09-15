@@ -1148,19 +1148,7 @@ export default function App() {
   const on = (id) => id === screen.name || `scr-${screen.name}` === id;
 
   return (
-    <div className="stage">
-      <div className="phone" id="phone">
-        <div className="sb">
-          <div className="sb-in" style={{ display: 'contents' }}>
-            <span className="sb-time">9:30</span>
-            <span className="island" />
-            <svg width="70" height="13" viewBox="0 0 70 13" fill="currentColor" aria-hidden="true">
-              <rect x="0" y="7.5" width="3" height="5" rx="1" /><rect x="5" y="5.5" width="3" height="7" rx="1" /><rect x="10" y="3" width="3" height="9.5" rx="1" /><rect x="15" y="1" width="3" height="11.5" rx="1" />
-              <path d="M24.5 4.6a9.4 9.4 0 0112 0l-1.7 2a6.8 6.8 0 00-8.6 0z" /><path d="M27.3 7.8a5.3 5.3 0 016.4 0l-1.8 2.2a2.6 2.6 0 00-2.8 0z" /><circle cx="30.5" cy="11" r="1.4" />
-              <rect x="46" y="1.5" width="19" height="10" rx="3" fill="none" stroke="currentColor" opacity=".4" /><rect x="48" y="3.5" width="13" height="6" rx="1.5" /><rect x="66.5" y="4.5" width="2" height="4" rx="1" opacity=".4" />
-            </svg>
-          </div>
-        </div>
+    <div className="app-root" id="phone">
 
         <div className="screens">
           {/* SPLASH */}
@@ -1189,8 +1177,8 @@ export default function App() {
               <div className="blob b2" />
               <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
               <div className="stack tilt">
-                <img className="p1" src="https://picsum.photos/seed/fng-sunset-girl/600/720" alt="" />
-                <img className="p2" src="https://picsum.photos/seed/fng-friends/600/720" alt="" />
+                <img className="p1" src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?w=600&h=720&fit=crop&q=80" alt="" />
+                <img className="p2" src="https://images.unsplash.com/photo-1543807535-eceef0bc6599?w=600&h=720&fit=crop&q=80" alt="" />
                 <span className="float-chip fc1">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" /></svg>
                   Real people, real plans
@@ -1223,8 +1211,8 @@ export default function App() {
               <div className="blob b2" />
               <div className="brandmini"><BrandMark light={false} /><b>Form Ni Gani?</b></div>
               <div className="stack tilt">
-                <img className="p1" src="https://picsum.photos/seed/fng-crowd/600/720" alt="" />
-                <img className="p2" src="https://picsum.photos/seed/fng-dance/600/720" alt="" />
+                <img className="p1" src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&h=720&fit=crop&q=80" alt="" />
+                <img className="p2" src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=720&fit=crop&q=80" alt="" />
                 <span className="chip-badge float-chip fc2"><i className="dot" />LIVE</span>
                 <span className="chip-badge chip-l float-chip fc3"><i className="dot mute" />Ending soon</span>
                 <span className="float-chip fc4">
@@ -1738,10 +1726,10 @@ export default function App() {
             <a className={screen.name === 'saved' ? 'on' : ''} onClick={() => openTab('saved')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4h12v17l-6-4-6 4z" /></svg>Saved</a>
             <a className={chatsOpen ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3h11A2.5 2.5 0 0120 5.5v9a2.5 2.5 0 01-2.5 2.5H9l-5 4z" /><path d="M8 8.5h8M8 12h5" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
             </a>
             <a className={chatsOpen ? 'on' : ''} onClick={() => { if (!user) return openGate(() => {}, 'chat'); setChatsOpen(true); loadConversations(); setChatUnread(0); }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3h11A2.5 2.5 0 0120 5.5v9a2.5 2.5 0 01-2.5 2.5H9l-5 4z" /><path d="M8 8.5h8M8 12h5" /></svg>Chats{chatUnread > 0 ? ` (${chatUnread})` : ''}
             </a>
             <a className={screen.name === 'profile' ? 'on' : ''} onClick={() => openTab('profile')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>Profile</a>
@@ -2049,9 +2037,6 @@ export default function App() {
 
         {toast && <div className="toast on">{toast.msg}</div>}
         {offline && <div className="offline-bar on">You&apos;re offline. Saved plans still work</div>}
-        <div className="hi" />
-      </div>
-      <div className="stage-cap"><b>Form Ni Gani?</b> · find your plan</div>
     </div>
   );
 }
