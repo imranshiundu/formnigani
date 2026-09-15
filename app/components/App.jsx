@@ -547,15 +547,18 @@ export default function App() {
      the app never snaps the user around mid-editing. */
   const setupDone = useRef(false);
   const prevSbUser = useRef(null);
+  const handledProfile = useRef(false);
   useEffect(() => {
     if (!SB || auth.loading) return;
     const sbu = auth.sbUser;
     const p = auth.profile;
     const justLoggedIn = !!sbu && !prevSbUser.current;
+    const isNewSbUser = !!sbu && prevSbUser.current !== sbu;
     prevSbUser.current = sbu || null;
     if (sbu && p) {
       if (!String(p.handle).startsWith('@user_')) {
         setupDone.current = true;
+        handledProfile.current = true;
         setSt((s) => ({
           ...s,
           user: { name: p.name, handle: p.handle, photo: db.profilePhoto(p) },
@@ -571,9 +574,10 @@ export default function App() {
           setGate(false);
           fn();
         }
-      } else if (justLoggedIn && !setupDone.current) {
-        // fresh account: one-time username setup (resumes pending after save)
+      } else if (!setupDone.current && !handledProfile.current) {
+        // fresh account: one-time username setup
         setupDone.current = true;
+        handledProfile.current = true;
         setName(p.name || '');
         go('handle');
       }
