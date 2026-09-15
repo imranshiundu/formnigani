@@ -423,10 +423,10 @@ export default function App() {
 
   /* ----- statuses (user stories) ----- */
   const loadStatuses = useCallback(() => {
-    db.listStatuses()
+    db.listStatuses(profId)
       .then((list) => setStatuses(list))
       .catch(() => {});
-  }, []);
+  }, [profId]);
   useEffect(() => {
     loadStatuses();
   }, [loadStatuses]);
@@ -614,10 +614,21 @@ export default function App() {
     return () => clearTimeout(t);
   }, [screen.name, st.ob, go]);
 
-  /* ----- PWA + online ----- */
+  /* ----- PWA + online + auto-update ----- */
+  const [updateReady, setUpdateReady] = useState(false);
   useEffect(() => {
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        // Listen for update notifications from the service worker
+        navigator.serviceWorker.addEventListener('message', (e) => {
+          if (e.data?.type === 'UPDATE_AVAILABLE') setUpdateReady(true);
+        });
+        // Periodically check for updates
+        setInterval(() => {
+          navigator.serviceWorker.controller?.postMessage({ type: 'CHECK_UPDATE' });
+        }, 60000);
+      });
     }
     const on = () => {
       setOffline(!navigator.onLine);
@@ -637,6 +648,18 @@ export default function App() {
       window.removeEventListener('beforeinstallprompt', bip);
     };
   }, [showToast]);
+
+  /* ----- scroll reveal: IntersectionObserver for card entrance animations ----- */
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+      { threshold: 0.1 }
+    );
+    const timer = setTimeout(() => {
+      document.querySelectorAll('.card, .prow').forEach((el) => obs.observe(el));
+    }, 300);
+    return () => { clearTimeout(timer); obs.disconnect(); };
+  }, [screen.name]);
 
   /* ----- realtime: targeted merges only (no refetch = minimal egress) ----- */
   const pushActivity = useCallback((text) => {
@@ -1304,7 +1327,7 @@ export default function App() {
             <div className="scr">
               <div className="pagehead">
                 <div>
-                  <h1>Form ni gani? <LiveDot status={liveStatus} /></h1>
+                  <h1>{I.flame} Form ni gani? <LiveDot status={liveStatus} /></h1>
                 </div>
                 <div className="acts">
                   <button className="iconbtn" aria-label="Search" onClick={() => { setSearchQ(''); setSearchOpen(true); }}>{I.search}</button>
@@ -2036,6 +2059,15 @@ export default function App() {
         )}
 
         {toast && <div className="toast on">{toast.msg}</div>}
+        {updateReady && (
+          <div className="update-bar" onClick={() => {
+            navigator.serviceWorker.controller?.postMessage({ type: 'SKIP_WAITING' });
+            window.location.reload();
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+            New version available — tap to update
+          </div>
+        )}
         {offline && <div className="offline-bar on">You&apos;re offline. Saved plans still work</div>}
     </div>
   );

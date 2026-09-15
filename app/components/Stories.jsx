@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { AVA, fmt } from '@/lib/client-store';
+import { db } from '@/lib/db';
 
 const FORM_DURATION = 5000;
 const TEXT_DURATION = 4000;
@@ -68,13 +69,14 @@ export function StoriesRail({ statuses, forms, seen, onOpen, onAdd, meHandle }) 
 }
 
 /* ---------- viewer: handles form stories and text/music statuses ---------- */
-export function StoryViewer({ items, index, onClose, onIndex, onSeen, isHyped, onHype, onProfile }) {
+export function StoryViewer({ items, index, onClose, onIndex, onSeen, isHyped, onHype, onProfile, onMute }) {
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const [burst, setBurst] = useState(0);
   const raf = useRef(0);
   const start = useRef(Date.now());
   const item = items[index];
+  const [muted, setMuted] = useState(() => item?.profile?.handle ? db.isMuted(item.profile.handle) : false);
   const held = useRef(false);
   const audioRef = useRef(null);
   const duration = item ? durFor(item) : FORM_DURATION;
@@ -210,6 +212,19 @@ export function StoryViewer({ items, index, onClose, onIndex, onSeen, isHyped, o
           {isStatus && item.profile?.handle ? (
             <button className="iconbtn light" onClick={(e) => { e.stopPropagation(); onProfile?.(item.profile.handle); }} aria-label="View profile">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
+            </button>
+          ) : null}
+          {isStatus && item.profile?.handle ? (
+            <button className="iconbtn light" onClick={(e) => {
+              e.stopPropagation();
+              if (muted) { db.unmuteUser(item.profile.handle); setMuted(false); onMute?.(item.profile.handle, false); }
+              else { db.muteUser(item.profile.handle); setMuted(true); onMute?.(item.profile.handle, true); onClose(); }
+            }} aria-label={muted ? 'Unmute' : 'Mute'}>
+              {muted ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M23 9l-6 6M17 9l6 6" /></svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" /></svg>
+              )}
             </button>
           ) : null}
           <button className="iconbtn light" onClick={onClose} aria-label="Close">

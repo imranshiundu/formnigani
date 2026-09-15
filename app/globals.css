@@ -706,3 +706,49 @@ html.dark .app-root{background:#15151B}
 .install-dismiss:hover{color:#fff}
 html.dark .install-banner{background:#222228;border:1px solid rgba(255,255,255,.08)}
 @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ---------- UPDATE BAR ---------- */
+.update-bar{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:700;box-shadow:0 8px 30px rgba(162,28,175,.4);z-index:55;cursor:pointer;animation:slideUp .35s ease;white-space:nowrap}
+.update-bar svg{flex-shrink:0}
+
+/* ---------- PAGEHEAD FLAME ---------- */
+.pagehead h1 svg.brandmark{width:22px;height:22px;vertical-align:middle;margin-right:4px;color:var(--brand)}
+.pagehead h1{display:flex;align-items:center;gap:0}
+
+/* ---------- SPLASH FLAME ANIMATION ---------- */
+.splash-flame{width:64px;height:64px;color:#fff;filter:drop-shadow(0 0 24px rgba(162,28,175,.6));animation:flamePop .8s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes flamePop{0%{transform:scale(0) rotate(-20deg);opacity:0}50%{transform:scale(1.15) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+.logo-lock b{animation:fadeUp .7s ease .3s both}
+
+/* ---------- MICRO-INTERACTIONS ---------- */
+.card{animation:cardIn .4s ease both}
+.card:nth-child(2){animation-delay:.05s}
+.card:nth-child(3){animation-delay:.1s}
+.card:nth-child(4){animation-delay:.15s}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+.hype-btn{transition:transform .15s cubic-bezier(.34,1.56,.64,1),color .15s}
+.hype-btn:active{transform:scale(1.25)}
+.hype-btn.on{color:var(--brand)}
+
+.fab{transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s}
+.fab:active{transform:scale(.9) rotate(90deg)}
+
+.story .ring{transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+.story:active .ring{transform:scale(.92)}
+
+.nav a{transition:transform .15s cubic-bezier(.34,1.56,.64,1),color .15s}
+.nav a:active{transform:scale(.88)}
+
+.pagehead h1{animation:fadeUp .5s ease both}
+.pagehead .acts{animation:fadeUp .5s ease .1s both}
+
+.btn-black{transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s}
+.btn-black:active{transform:scale(.97)}
+
+.input{transition:border-color .2s,box-shadow .2s}
+.input:focus{box-shadow:0 0 0 3px rgba(162,28,175,.2)}
+
+/* Scroll reveal for cards */
+.card{opacity:0;transform:translateY(16px);transition:opacity .4s ease,transform .4s ease}
+.card.visible{opacity:1;transform:none}

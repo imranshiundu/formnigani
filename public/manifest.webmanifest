@@ -3,11 +3,11 @@
   "name": "Form Ni Gani?",
   "short_name": "Form Ni Gani?",
   "description": "Form Ni Gani? Discover real plans happening near you.",
-  "start_url": "/",
+  "start_url": "/home",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#A21CAF",
+  "background_color": "#0F0F13",
   "theme_color": "#A21CAF",
   "categories": ["social", "entertainment", "events"],
   "icons": [
@@ -16,8 +16,7 @@
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Find a plan", "url": "/#/home", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Nearby map", "url": "/#/map", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "New plan", "url": "/#/create", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Find a plan", "url": "/home", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "New plan", "url": "/create", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }
