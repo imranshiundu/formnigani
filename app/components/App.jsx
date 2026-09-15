@@ -265,6 +265,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
   const [gate, setGate] = useState(false);
+  const [gateReason, setGateReason] = useState('');
   const [settings, setSettings] = useState(false);
   const [edit, setEdit] = useState(false);
   const [toast, setToast] = useState(null);
@@ -325,6 +326,7 @@ export default function App() {
   const [comments, setComments] = useState({}); // formId -> list // [BACKEND]
 
   const pending = useRef(null);
+  const obSwipe = useRef(null);
   const toastTimer = useRef(null);
   const user = st.user;
   const auth = useAuth();
@@ -454,8 +456,15 @@ export default function App() {
         db.myState(p.id)
           .then((m) => setSt((s) => ({ ...s, saves: m.saves, joins: m.joins, hypes: m.hypes })))
           .catch(() => {});
+        // Resume the action the user was attempting before sign-in (comment, join, save...).
+        if (justLoggedIn && pending.current) {
+          const fn = pending.current;
+          pending.current = null;
+          setGate(false);
+          fn();
+        }
       } else if (justLoggedIn && !setupDone.current) {
-        // fresh account: one-time username setup
+        // fresh account: one-time username setup (resumes pending after save)
         setupDone.current = true;
         setName(p.name || '');
         go('handle');
@@ -607,14 +616,16 @@ export default function App() {
     }
   };
   const profileUrl = (handle) => `${window.location.origin}/#/@${String(handle || '').replace(/^@/, '')}`;
-  const openGate = (fn) => {
+  const openGate = (fn, reason) => {
     pending.current = fn || null;
+    // Already on the auth page? No popup — focus there and let sign-in resume.
+    if (screen.name === 'auth') return;
+    setGateReason(reason || '');
     setGate(true);
   };
   const guestSkip = () => {
     pending.current = null;
     setGate(false);
-    showToast('Browsing as guest');
     if (['saved', 'profile'].includes(screen.name)) go(lastTab || 'home');
   };
   const googleGo = async () => {
@@ -627,7 +638,7 @@ export default function App() {
 
   /* ----- actions ----- */
   const trySave = (id) => {
-    if (!user) return openGate(() => trySave(id));
+    if (!user) return openGate(() => trySave(id), 'save this plan');
     const on = !st.saves.includes(id);
     setSt((s) => ({
       ...s,
@@ -638,7 +649,7 @@ export default function App() {
   };
 
   const tryJoin = (id, el) => {
-    if (!user) return openGate(() => tryJoin(id));
+    if (!user) return openGate(() => tryJoin(id), 'join this plan');
     const f = forms.find((x) => x.id === id);
     const leaving = st.joins.includes(id);
     setSt((s) => ({
@@ -680,7 +691,7 @@ export default function App() {
     }
   };
   const tryHype = (id, el) => {
-    if (!user) return openGate(() => tryHype(id, null));
+    if (!user) return openGate(() => tryHype(id, null), 'hype this plan');
     doHype(id, el, st.hypes.includes(id));
   };
 
@@ -913,7 +924,7 @@ export default function App() {
   const postForm = () => {
     const title = cTitle.trim();
     if (title.length < 3) return showToast('Describe your plan first');
-    if (!user) return openGate(postForm);
+    if (!user) return openGate(postForm, 'share a plan');
     const tags = cTags.join(', ');
     const img = cPhoto ? IMGP(cPhoto, 800, 600) : IMGP('fng-default' + (Date.now() % 7), 800, 600);
     const desc = tags ? `Tags: ${tags}. You are hosting this one — details in the chat.` : 'You are hosting this one — details in the chat.';
@@ -1011,36 +1022,72 @@ export default function App() {
           </section>
 
           {/* ONBOARD 1 */}
-          <section className={`screen s-ob ${on('ob1') ? 'on' : ''}`}>
+          <section
+            className={`screen s-ob ${on('ob1') ? 'on' : ''}`}
+            onPointerDown={(e) => { obSwipe.current = { x: e.clientX }; }}
+            onPointerUp={(e) => {
+              const s = obSwipe.current;
+              obSwipe.current = null;
+              if (s && s.x - e.clientX > 50) go('ob2');
+            }}
+          >
             <div className="scr">
+              <div className="blob b1" />
+              <div className="blob b2" />
               <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
-              <div className="stack">
+              <div className="stack tilt">
                 <img className="p1" src="https://picsum.photos/seed/fng-sunset-girl/600/720" alt="" />
                 <img className="p2" src="https://picsum.photos/seed/fng-friends/600/720" alt="" />
+                <span className="float-chip fc1">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" /></svg>
+                  Real people, real plans
+                </span>
               </div>
-              <h1>There&apos;s always<br /><em className="hl">a plan near you.</em></h1>
-              <p>The best nights in the city are happening right now. Don&apos;t miss out.</p>
-              <div className="dots"><i className="on" /><i /></div>
+              <h1>There's always<br /><em className="hl">a plan near you.</em></h1>
+              <p>The best nights in the city are happening right now. Don't miss out.</p>
+              <div className="dots">
+                <button className="dotbtn on" aria-label="Screen 1" onClick={() => go('ob1')}><i /></button>
+                <button className="dotbtn" aria-label="Screen 2" onClick={() => go('ob2')}><i /></button>
+              </div>
               <div className="ob-pad" />
-              <button className="btn-black" onClick={() => go('ob2')}>Continue</button>
+              <button className="btn-black ob-cta" onClick={() => go('ob2')}>Continue</button>
+              <span className="swipe-hint">swipe</span>
             </div>
           </section>
 
           {/* ONBOARD 2 */}
-          <section className={`screen s-ob ${on('ob2') ? 'on' : ''}`}>
+          <section
+            className={`screen s-ob ${on('ob2') ? 'on' : ''}`}
+            onPointerDown={(e) => { obSwipe.current = { x: e.clientX }; }}
+            onPointerUp={(e) => {
+              const s = obSwipe.current;
+              obSwipe.current = null;
+              if (s && e.clientX - s.x > 50) go('ob1');
+            }}
+          >
             <div className="scr">
+              <div className="blob b1" />
+              <div className="blob b2" />
               <div className="brandmini"><BrandMark light={false} /><b>FormNiGani</b></div>
-              <div className="stack">
+              <div className="stack tilt">
                 <img className="p1" src="https://picsum.photos/seed/fng-crowd/600/720" alt="" />
                 <img className="p2" src="https://picsum.photos/seed/fng-dance/600/720" alt="" />
-                <span className="chip-badge"><i className="dot" />LIVE</span>
-                <span className="chip-badge chip-l"><i className="dot mute" />Ending soon</span>
+                <span className="chip-badge float-chip fc2"><i className="dot" />LIVE</span>
+                <span className="chip-badge chip-l float-chip fc3"><i className="dot mute" />Ending soon</span>
+                <span className="float-chip fc4">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c1 4-3 5-3 9a5 5 0 0010 0c0-2-1-3.5-2-4.5-.5 1.5-1.5 2-2.5 2C14 7 13 4.5 12 2z" /><path d="M12 22a7 7 0 01-7-7c0-1.5.5-2.5 1-3.5C9 8 10 5 10 2c3 2 8 6 8 12a8 8 0 01-6 8z" opacity=".45" /></svg>
+                  Hype what you love
+                </span>
               </div>
               <h1>They post it. You<br /><em className="hl">show up.</em></h1>
               <p>Discover plans around you and join the moments that matter.</p>
-              <div className="dots"><i /><i className="on" /></div>
+              <div className="dots">
+                <button className="dotbtn" aria-label="Screen 1" onClick={() => go('ob1')}><i /></button>
+                <button className="dotbtn on" aria-label="Screen 2" onClick={() => go('ob2')}><i /></button>
+              </div>
               <div className="ob-pad" />
-              <button className="btn-black" onClick={() => go('auth')}>Continue</button>
+              <button className="btn-black ob-cta" onClick={() => go('auth')}>Continue</button>
+              <span className="swipe-hint">swipe</span>
             </div>
           </section>
 
@@ -1130,7 +1177,7 @@ export default function App() {
                   if (i >= 0) setStoryIdx(i);
                 }}
                 onAdd={() => {
-                  if (!user) return openGate(() => { setComposer(true); });
+                  if (!user) return openGate(() => { setComposer(true); }, 'post a status');
                   setComposer(true);
                 }}
               />
@@ -1509,15 +1556,22 @@ export default function App() {
         )}
 
         {/* GATE */}
+        {/* GATE — mid-action sign-in prompt */}
         {gate && (
-          <div className="modal on" onClick={(e) => { if (e.target === e.currentTarget) guestSkip(); }}>
-            <div className="panel">
-              <div className="grab" />
-              <h3>Welcome to FormNiGani</h3>
-              <p className="psub">Log in to join plans, host your own, and save your weekend highlights.</p>
-              <button className="btn-black gate-btn" onClick={() => { setGate(false); go('auth', 'up'); }}>Sign up</button>
-              <button className="btn-ghost gate-btn" onClick={() => { setGate(false); go('auth', 'in'); }}>Sign in</button>
-              <button className="guest-skip" onClick={guestSkip}>Just looking around — continue as guest</button>
+          <div className="modal on gate-modal" onClick={(e) => { if (e.target === e.currentTarget) guestSkip(); }}>
+            <div className="gate-card">
+              <div className="gate-badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5" /><path d="M8 11V7a4 4 0 118 0v4" /></svg>
+              </div>
+              <h3>You need an account for that</h3>
+              <p className="psub">
+                {gateReason
+                  ? `Sign in to ${gateReason} — takes a few seconds.`
+                  : 'Sign in to join plans, hype, comment, and save your favourites.'}
+              </p>
+              <button className="btn-black" onClick={() => { setGate(false); go('auth', 'up'); }}>Sign up</button>
+              <button className="btn-ghost" onClick={() => { setGate(false); go('auth', 'in'); }}>Sign in</button>
+              <button className="guest-skip" onClick={guestSkip}>Maybe later</button>
             </div>
           </div>
         )}

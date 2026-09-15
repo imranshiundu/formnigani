@@ -498,3 +498,41 @@ body{font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',sans-serif;color:v
 .pw-wrap .input{padding-right:46px}
 .pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--gray)}
 .pw-eye:active{background:#F2F2F5}
+
+/* ---------- FUN ONBOARDING ---------- */
+.s-ob .scr{position:relative;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(46px);opacity:.55;pointer-events:none}
+.blob.b1{width:260px;height:260px;background:#F9C6F1;top:-70px;left:-70px;animation:bob 7s ease-in-out infinite}
+.blob.b2{width:300px;height:300px;background:#E3C6F7;bottom:-90px;right:-80px;animation:bob 9s ease-in-out infinite reverse}
+@keyframes bob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-24px) scale(1.06)}}
+.stack.tilt img{animation:cardFloat 6s ease-in-out infinite;transform-origin:center}
+.stack.tilt .p1{animation-delay:0s}
+.stack.tilt .p2{animation-delay:1.6s}
+@keyframes cardFloat{0%,100%{translate:0 0}50%{translate:0 -10px}}
+.float-chip{position:absolute;z-index:4;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#3F3F46;font-size:11.5px;font-weight:800;padding:8px 13px;border-radius:999px;box-shadow:0 10px 26px rgba(24,10,40,.22);animation:chipBob 5s ease-in-out infinite}
+.float-chip svg{color:var(--brand)}
+.float-chip.fc1{right:-6px;top:34px;animation-delay:.8s}
+.float-chip.fc2{animation-delay:0s}
+.float-chip.fc3{animation-delay:1.2s}
+.float-chip.fc4{left:-8px;bottom:36px;animation-delay:2s}
+@keyframes chipBob{0%,100%{translate:0 0}50%{translate:0 -8px}}
+.chip-badge.float-chip{background:rgba(18,16,24,.55);color:#fff}
+.dots{display:flex;gap:8px;justify-content:center;margin-top:26px}
+.dotbtn{padding:6px 4px;cursor:pointer}
+.dotbtn i{display:block;width:8px;height:8px;border-radius:50%;background:#E7D3E5;transition:.25s}
+.dotbtn.on i{width:26px;border-radius:4px;background:var(--brand)}
+.ob-cta{animation:ctaPulse 2.6s ease-in-out infinite}
+@keyframes ctaPulse{0%,100%{box-shadow:0 10px 24px rgba(0,0,0,.22)}50%{box-shadow:0 14px 34px rgba(162,28,175,.45)}}
+.swipe-hint{display:block;text-align:center;font-size:11px;font-weight:700;color:#B9A9B8;letter-spacing:1.5px;text-transform:uppercase;margin-top:10px}
+
+/* ---------- GATE (centered prompt) ---------- */
+.gate-modal{z-index:72;align-items:center;justify-content:center;display:flex}
+.gate-modal .panel{display:none}
+.gate-card{position:relative;width:min(320px,88%);background:#fff;border-radius:28px;padding:26px 22px 20px;text-align:center;box-shadow:0 30px 80px rgba(12,6,18,.4);animation:gateIn .28s ease}
+@keyframes gateIn{from{opacity:0;transform:translateY(18px) scale(.96)}}
+.gate-badge{width:52px;height:52px;border-radius:50%;background:#F9EFF9;color:var(--brand);display:grid;place-items:center;margin:0 auto 12px}
+.gate-card h3{font-size:19px;font-weight:800;letter-spacing:-.4px}
+.gate-card .psub{font-size:13.5px;color:var(--gray);line-height:1.55;margin:8px 0 18px}
+.gate-card .btn-black,.gate-card .btn-ghost{width:100%;margin-top:10px;padding:14px 0;font-size:14.5px}
+.gate-card .btn-ghost{border:1.5px solid var(--brand)}
+.gate-card .guest-skip{margin-top:12px}
